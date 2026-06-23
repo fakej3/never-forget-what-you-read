@@ -3,7 +3,10 @@
 import { buildChunks } from './chunker.js';
 import { Storage }     from './storage.js';
 
-const AI_CONCURRENCY = 3; // parallel AI calls at once
+const AI_CONCURRENCY  = 3;   // parallel AI calls at once
+const MAX_RETRIES     = 3;   // per AI call
+const RETRY_DELAY_MS  = 2000; // base delay, doubles each attempt
+const FETCH_TIMEOUT_MS = 45000;
 
 // ── Prompts ────────────────────────────────────────────────────────────────
 
@@ -64,13 +67,33 @@ Extract:
 - vocabulary: 6–12 important terms, jargon, or specialized words defined in the book`;
 }
 
+// ── Retry wrapper ──────────────────────────────────────────────────────────
+
+async function withRetry(fn, label, logFn) {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err.message === 'Processing cancelled.') throw err;
+      lastErr = err;
+      if (attempt < MAX_RETRIES) {
+        const delay = RETRY_DELAY_MS * attempt;
+        logFn(`⚠ ${label} failed (attempt ${attempt}/${MAX_RETRIES}): ${err.message} — retrying in ${delay / 1000}s`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  throw new Error(`${label} failed after ${MAX_RETRIES} attempts: ${lastErr.message}`);
+}
+
 // ── Batch runner ───────────────────────────────────────────────────────────
 
 async function runBatch(items, fn, concurrency) {
   const results = [];
   for (let i = 0; i < items.length; i += concurrency) {
-    const slice  = items.slice(i, i + concurrency);
-    const batch  = await Promise.all(slice.map(fn));
+    const slice = items.slice(i, i + concurrency);
+    const batch = await Promise.all(slice.map(fn));
     results.push(...batch);
   }
   return results;
@@ -105,7 +128,7 @@ export class Pipeline {
   async run(bookId, filename, pages, pageCount) {
     // ── Phase 1: Chunk (instant) ──────────────────────────────────────────
     this._progress(20, 'Analyzing structure and chunking text…', 'chunk');
-    const { chapters, chunks } = buildChunks(pages);
+    const { chapters, chunks } = buildChunks(pages, bookId);
     this._log(`Detected ${chapters.length} chapter(s), ${chunks.length} chunk(s)`);
     this._check();
 
@@ -129,10 +152,20 @@ export class Pipeline {
 
     const chunkResults = await runBatch(chunks, async (chunk) => {
       this._check();
-      const summary = await this.provider.complete(
-        SYSTEM_SUMMARIZER,
-        promptChunkSummary(chunk.chapterTitle, chunk.text),
-        { maxTokens: 512, temperature: 0.2 }
+
+      // Skip empty chunks (e.g. blank pages grouped as a chapter)
+      if (!chunk.text.trim()) {
+        return { ...chunk, bookId, summary: '' };
+      }
+
+      const summary = await withRetry(
+        () => this.provider.complete(
+          SYSTEM_SUMMARIZER,
+          promptChunkSummary(chunk.chapterTitle, chunk.text),
+          { maxTokens: 512, temperature: 0.2 }
+        ),
+        `Chunk ${chunk.id}`,
+        (msg) => this._log(msg)
       );
 
       summarized++;
@@ -140,9 +173,10 @@ export class Pipeline {
       this._progress(pct, `Chunk ${summarized} / ${chunks.length} summarized`, 'summarize');
       this._log(`✓ Chunk ${chunk.id} summarized`);
 
-      const record = { ...chunk, bookId, summary };
+      // Store WITHOUT raw text — only summary is needed after this point
+      const record = { id: chunk.id, bookId, chapterIndex: chunk.chapterIndex, chunkIndex: chunk.chunkIndex, chapterTitle: chunk.chapterTitle, pageStart: chunk.pageStart, pageEnd: chunk.pageEnd, summary };
       await Storage.saveChunk(record);
-      return record;
+      return { ...chunk, bookId, summary }; // keep text in memory for this run only
     }, AI_CONCURRENCY);
 
     this._check();
@@ -159,10 +193,14 @@ export class Pipeline {
 
       const summary = chunkSummaries.length === 1
         ? chunkSummaries[0]
-        : await this.provider.complete(
-            SYSTEM_SUMMARIZER,
-            promptChapterSummary(chapters[i].title, chunkSummaries),
-            { maxTokens: 768, temperature: 0.2 }
+        : await withRetry(
+            () => this.provider.complete(
+              SYSTEM_SUMMARIZER,
+              promptChapterSummary(chapters[i].title, chunkSummaries),
+              { maxTokens: 768, temperature: 0.2 }
+            ),
+            `Chapter ${i + 1} summary`,
+            (msg) => this._log(msg)
           );
 
       chapterSummaries.push(summary);
@@ -189,10 +227,14 @@ export class Pipeline {
 
     const bookSummary = chapterSummaries.length === 1
       ? chapterSummaries[0]
-      : await this.provider.complete(
-          SYSTEM_SUMMARIZER,
-          promptBookSummary(chapterSummaries),
-          { maxTokens: 1024, temperature: 0.25 }
+      : await withRetry(
+          () => this.provider.complete(
+            SYSTEM_SUMMARIZER,
+            promptBookSummary(chapterSummaries),
+            { maxTokens: 1024, temperature: 0.25 }
+          ),
+          'Book summary',
+          (msg) => this._log(msg)
         );
 
     this._log('✓ Book summary complete');
@@ -204,20 +246,34 @@ export class Pipeline {
     let knowledge = { concepts: [], principles: [], quotes: [], actionableIdeas: [], vocabulary: [] };
 
     try {
-      const raw  = await this.provider.complete(
-        SYSTEM_SUMMARIZER,
-        promptKnowledge(bookSummary, chapterSummaries),
-        { maxTokens: 2048, temperature: 0.3 }
+      const raw = await withRetry(
+        () => this.provider.complete(
+          SYSTEM_SUMMARIZER,
+          promptKnowledge(bookSummary, chapterSummaries),
+          { maxTokens: 2048, temperature: 0.3 }
+        ),
+        'Knowledge extraction',
+        (msg) => this._log(msg)
       );
 
-      // Extract JSON even if model wraps it in markdown
+      // Extract JSON even if model wraps it in a markdown code block
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        knowledge = JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        // Normalise — guard against model returning wrong field names
+        knowledge = {
+          concepts:       Array.isArray(parsed.concepts)       ? parsed.concepts       : [],
+          principles:     Array.isArray(parsed.principles)     ? parsed.principles     : [],
+          quotes:         Array.isArray(parsed.quotes)         ? parsed.quotes         : [],
+          actionableIdeas:Array.isArray(parsed.actionableIdeas)? parsed.actionableIdeas: [],
+          vocabulary:     Array.isArray(parsed.vocabulary)     ? parsed.vocabulary     : [],
+        };
+      } else {
+        this._log('⚠ Knowledge JSON not found in response — empty knowledge saved');
       }
       this._log('✓ Knowledge extraction complete');
     } catch (err) {
-      this._log(`⚠ Knowledge parse failed: ${err.message} — partial data saved`);
+      this._log(`⚠ Knowledge extraction failed after retries: ${err.message} — empty knowledge saved`);
     }
 
     await Storage.saveKnowledge({ bookId, ...knowledge });

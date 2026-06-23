@@ -34,6 +34,12 @@ async function init() {
 // ── Handlers ───────────────────────────────────────────────────────────────
 
 async function handleFile(ui, file) {
+  // Block concurrent uploads
+  if (activePipeline) {
+    ui.showError('A book is already being processed. Please wait for it to finish or cancel it first.');
+    return;
+  }
+
   // Validate provider config first
   const cfg = await ui.getProviderConfig();
   if (!cfg.apiKey) {

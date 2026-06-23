@@ -16,8 +16,9 @@ const PROVIDER_MODELS = {
 
 export class UI {
   constructor(callbacks) {
-    this.cb = callbacks; // { onFileSelected, onSettingsSaved, onBookOpen, onBookDelete, onCancelProcessing }
+    this.cb = callbacks;
     this._deleteTarget = null;
+    this._toastTimer   = null;
     this._bind();
   }
 
@@ -39,16 +40,19 @@ export class UI {
       e.preventDefault();
       zone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file?.name.endsWith('.pdf')) this.cb.onFileSelected(file);
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        this.showError(`"${file.name}" is not a PDF. Please drop a .pdf file.`);
+        return;
+      }
+      this.cb.onFileSelected(file);
     });
 
-    // Settings modal
+    // Settings modal — only wire the backdrop that actually exists in HTML
     document.getElementById('open-settings').addEventListener('click', () => this.openSettings());
     document.getElementById('close-settings').addEventListener('click', () => this.closeSettings());
-    document.getElementById('modal-backdrop-settings')?.addEventListener('click', () => this.closeSettings());
     document.querySelector('#settings-modal .modal-backdrop').addEventListener('click', () => this.closeSettings());
     document.getElementById('save-settings').addEventListener('click', () => this._saveSettings());
-
     document.getElementById('provider-select').addEventListener('change', e => this._onProviderChange(e.target.value));
 
     // Cancel processing
@@ -59,7 +63,7 @@ export class UI {
     // Back to library
     document.getElementById('back-to-library').addEventListener('click', () => this.showLibrary());
 
-    // Delete
+    // Delete (in detail view)
     document.getElementById('delete-book').addEventListener('click', () => {
       this.openDeleteModal(this._currentBookId);
     });
@@ -93,8 +97,8 @@ export class UI {
   }
 
   _onProviderChange(provider, currentModel = null) {
-    const models  = PROVIDER_MODELS[provider] || [];
-    const select  = document.getElementById('model-select');
+    const models = PROVIDER_MODELS[provider] || [];
+    const select = document.getElementById('model-select');
     select.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
     if (currentModel && models.includes(currentModel)) select.value = currentModel;
 
@@ -114,7 +118,7 @@ export class UI {
     await Storage.saveSetting('model',    model);
 
     this.closeSettings();
-    this.cb.onSettingsSaved?.();
+    this.showToast('API configuration saved.');
   }
 
   async getProviderConfig() {
@@ -129,9 +133,9 @@ export class UI {
 
   showProcessing(filename, pageCount) {
     document.getElementById('processing-book-title').textContent = filename;
-    document.getElementById('processing-page-count').textContent = `${pageCount} pages`;
+    document.getElementById('processing-page-count').textContent = pageCount !== '…' ? `${pageCount} pages` : '';
     document.getElementById('processing-log').innerHTML = '';
-    this.setProgress(0, 'Starting…', 'extract');
+    this.setProgress(0, 'Reading file…', 'extract');
     document.getElementById('upload-section').classList.add('hidden');
     document.getElementById('processing-section').classList.remove('hidden');
   }
@@ -148,10 +152,13 @@ export class UI {
   }
 
   appendLog(msg) {
-    const log   = document.getElementById('processing-log');
-    const entry = document.createElement('div');
-    const isErr = msg.includes('⚠') || msg.includes('error') || msg.includes('failed');
-    const isOk  = msg.includes('✓');
+    const log = document.getElementById('processing-log');
+    // Prune log to last 80 entries to prevent unbounded DOM growth
+    while (log.children.length >= 80) log.removeChild(log.firstChild);
+
+    const entry  = document.createElement('div');
+    const isErr  = msg.includes('⚠') || msg.toLowerCase().includes('failed');
+    const isOk   = msg.includes('✓');
     entry.className = `log-entry${isErr ? ' log-err' : isOk ? ' log-ok' : ''}`;
     entry.textContent = msg;
     log.appendChild(entry);
@@ -222,6 +229,17 @@ export class UI {
 
     if (book.status === 'complete') {
       card.addEventListener('click', () => this.cb.onBookOpen(book.id));
+    } else {
+      // Error and stuck-processing books show a delete button directly on the card
+      const delBtn = document.createElement('button');
+      delBtn.className   = 'btn-ghost btn-sm btn-danger-ghost';
+      delBtn.textContent = 'Remove';
+      delBtn.style.marginTop = '0.5rem';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openDeleteModal(book.id);
+      });
+      card.appendChild(delBtn);
     }
 
     return card;
@@ -242,11 +260,11 @@ export class UI {
 
     const date = new Date(book.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
-    document.getElementById('detail-title').textContent    = book.title;
-    document.getElementById('detail-pages').textContent    = `${book.pageCount} pages`;
-    document.getElementById('detail-chapters').textContent = `${chapters.length} chapters`;
-    document.getElementById('detail-date').textContent     = date;
-    document.getElementById('detail-book-summary').textContent = book.summary || '';
+    document.getElementById('detail-title').textContent         = book.title;
+    document.getElementById('detail-pages').textContent         = `${book.pageCount} pages`;
+    document.getElementById('detail-chapters').textContent      = `${chapters.length} chapters`;
+    document.getElementById('detail-date').textContent          = date;
+    document.getElementById('detail-book-summary').textContent  = book.summary || 'No summary available.';
 
     // Chapters
     const sortedChapters = [...chapters].sort((a, b) => a.index - b.index);
@@ -256,9 +274,9 @@ export class UI {
 
     // Knowledge
     if (knowledge) {
-      this._renderList('detail-concepts',   knowledge.concepts   || [], 'pill');
-      this._renderList('detail-principles', knowledge.principles || [], 'item');
-      this._renderList('detail-actions',    knowledge.actionableIdeas || [], 'item');
+      this._renderPills('detail-concepts',   knowledge.concepts        || []);
+      this._renderItems('detail-principles', knowledge.principles      || []);
+      this._renderItems('detail-actions',    knowledge.actionableIdeas || []);
       this._renderVocab(knowledge.vocabulary || []);
       this._renderQuotes(knowledge.quotes    || []);
     }
@@ -280,35 +298,66 @@ export class UI {
       <div class="chapter-item-header">
         <span class="chapter-item-title">${this._esc(ch.title)}</span>
         <span class="chapter-item-pages">${pages}</span>
-        <span class="chapter-item-toggle">▾</span>
+        ${ch.summary ? '<span class="chapter-item-toggle">▾</span>' : ''}
       </div>
       ${ch.summary ? `<p class="chapter-item-summary">${this._esc(ch.summary)}</p>` : ''}
     `;
 
-    div.querySelector('.chapter-item-header').addEventListener('click', () => {
-      div.classList.toggle('open');
-    });
+    if (ch.summary) {
+      div.querySelector('.chapter-item-header').addEventListener('click', () => {
+        div.classList.toggle('open');
+      });
+    }
 
     return div;
   }
 
-  _renderList(id, items, type) {
+  // Split into two named methods — removes dead branch
+  _renderPills(id, items) {
     const el = document.getElementById(id);
     el.innerHTML = '';
     items.forEach(item => {
       const li = document.createElement('li');
       li.textContent = item;
-      if (type === 'pill') el.appendChild(li);
-      else el.appendChild(li);
+      el.appendChild(li);
     });
+    if (items.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = 'None extracted.';
+      li.style.opacity = '0.4';
+      el.appendChild(li);
+    }
+  }
+
+  _renderItems(id, items) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = item;
+      el.appendChild(li);
+    });
+    if (items.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = 'None extracted.';
+      li.style.opacity = '0.4';
+      el.appendChild(li);
+    }
   }
 
   _renderVocab(vocab) {
     const el = document.getElementById('detail-vocab');
     el.innerHTML = '';
+    if (vocab.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = 'None extracted.';
+      li.style.opacity = '0.4';
+      el.appendChild(li);
+      return;
+    }
     vocab.forEach(v => {
       const li = document.createElement('li');
-      li.innerHTML = `<div class="vocab-item-term">${this._esc(v.term)}</div><div class="vocab-item-def">${this._esc(v.definition)}</div>`;
+      li.innerHTML = `<div class="vocab-item-term">${this._esc(v.term || v)}</div><div class="vocab-item-def">${this._esc(v.definition || '')}</div>`;
       el.appendChild(li);
     });
   }
@@ -316,12 +365,19 @@ export class UI {
   _renderQuotes(quotes) {
     const el = document.getElementById('detail-quotes');
     el.innerHTML = '';
+    if (quotes.length === 0) {
+      el.innerHTML = '<p class="muted" style="font-size:0.85rem">No quotes extracted.</p>';
+      return;
+    }
     quotes.forEach(q => {
       const block = document.createElement('div');
       block.className = 'quote-block';
+      // q may be a string or { text, context }
+      const text    = typeof q === 'string' ? q : (q.text || '');
+      const context = typeof q === 'string' ? '' : (q.context || '');
       block.innerHTML = `
-        <p class="quote-text">"${this._esc(q.text)}"</p>
-        ${q.context ? `<p class="quote-context">${this._esc(q.context)}</p>` : ''}
+        <p class="quote-text">"${this._esc(text)}"</p>
+        ${context ? `<p class="quote-context">${this._esc(context)}</p>` : ''}
       `;
       el.appendChild(block);
     });
@@ -339,11 +395,32 @@ export class UI {
     document.getElementById('delete-modal').classList.add('hidden');
   }
 
-  // ── Errors ─────────────────────────────────────────────────────────────
+  // ── Toast (replaces alert) ─────────────────────────────────────────────
 
   showError(msg) {
-    alert(`Error: ${msg}`);
+    this._showToastInternal(msg, 'error');
   }
+
+  showToast(msg) {
+    this._showToastInternal(msg, 'info');
+  }
+
+  _showToastInternal(msg, type) {
+    let toast = document.getElementById('app-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'app-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent  = msg;
+    toast.className    = `app-toast app-toast--${type} app-toast--visible`;
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      toast.classList.remove('app-toast--visible');
+    }, type === 'error' ? 6000 : 3000);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────
 
   _esc(str) {
     return String(str ?? '')

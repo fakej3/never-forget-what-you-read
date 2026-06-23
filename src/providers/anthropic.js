@@ -13,22 +13,34 @@ export class AnthropicProvider extends AIProvider {
 
     const model = this.model || 'claude-haiku-4-5-20251001';
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type':            'application/json',
-        'x-api-key':               this.apiKey,
-        'anthropic-version':       '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        temperature,
-        system:   systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    });
+    const controller = new AbortController();
+    const timer      = setTimeout(() => controller.abort(), 45000);
+
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type':                      'application/json',
+          'x-api-key':                         this.apiKey,
+          'anthropic-version':                 '2023-06-01',
+          'anthropic-dangerous-allow-browser': 'true',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          temperature,
+          system:   systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') throw new Error('Anthropic request timed out after 45s');
+      throw err;
+    }
+    clearTimeout(timer);
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

@@ -569,7 +569,7 @@ select option { background: var(--surface-2); }
   color: var(--text-faint);
   white-space: nowrap;
 }
-.chapter-item-toggle { font-size: 0.7rem; color: var(--text-faint); }
+.chapter-item-toggle { font-size: 0.7rem; color: var(--text-faint); display: inline-block; transition: transform 0.2s; }
 .chapter-item-summary {
   font-size: 0.82rem;
   color: var(--text-muted);
@@ -578,7 +578,7 @@ select option { background: var(--surface-2); }
   display: none;
 }
 .chapter-item.open .chapter-item-summary { display: block; }
-.chapter-item.open .chapter-item-toggle { transform: rotate(180deg); display: inline-block; }
+.chapter-item.open .chapter-item-toggle { transform: rotate(180deg); }
 
 /* Quotes */
 .quotes-list {
@@ -600,6 +600,37 @@ select option { background: var(--surface-2); }
   font-size: 0.75rem;
   color: var(--text-faint);
   margin-top: 0.3rem;
+}
+
+/* ─── Toast ─────────────────────────────────────────────────────────────────── */
+.app-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(1rem);
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text);
+  max-width: 480px;
+  width: calc(100% - 2rem);
+  text-align: center;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.app-toast--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.app-toast--error {
+  border-color: rgba(239,68,68,0.4);
+  background: #1a0f0f;
+  color: #fca5a5;
 }
 
 /* ─── Scrollbar ─────────────────────────────────────────────────────────────── */

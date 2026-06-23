@@ -14,17 +14,22 @@ export class PDFUploader {
    * Returns { pageCount, pages: [{ pageNum, text }] }
    */
   async extract(file) {
+    // Report file-read start so UI is never frozen at 0%
+    this.onProgress({ phase: 'extract', done: 0, total: 1, status: `Reading file — ${(file.size / 1024 / 1024).toFixed(1)} MB…`, pct: 0 });
+
     const arrayBuffer = await file.arrayBuffer();
 
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    // Load PDF from the buffer, then immediately release our reference —
+    // PDF.js takes ownership; we don't need to hold arrayBuffer anymore.
+    const loadTask  = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf       = await loadTask.promise;
     const pageCount = pdf.numPages;
 
-    this.onProgress({ phase: 'extract', done: 0, total: pageCount, status: `Loading PDF — ${pageCount} pages` });
+    this.onProgress({ phase: 'extract', done: 0, total: pageCount, status: `Extracting text — 0 of ${pageCount} pages`, pct: 1 });
 
     const pages = [];
     let extracted = 0;
 
-    // Process in batches to cap concurrent GPU/memory use
     for (let start = 1; start <= pageCount; start += PAGE_BATCH) {
       const end   = Math.min(start + PAGE_BATCH - 1, pageCount);
       const batch = [];
@@ -35,20 +40,21 @@ export class PDFUploader {
 
       const results = await Promise.all(batch);
       pages.push(...results);
-
       extracted += results.length;
+
       this.onProgress({
         phase:  'extract',
         done:   extracted,
         total:  pageCount,
         status: `Extracting text — page ${extracted} of ${pageCount}`,
-        pct:    Math.round((extracted / pageCount) * 20), // extraction = 0–20% of overall
+        pct:    1 + Math.round((extracted / pageCount) * 19), // 1–20% of overall
       });
+
+      // Yield to the event loop every batch so the UI can breathe
+      await new Promise(r => setTimeout(r, 0));
     }
 
-    // Release PDF resources
     pdf.destroy();
-
     return { pageCount, pages };
   }
 
