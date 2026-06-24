@@ -153,16 +153,18 @@ export class Pipeline {
 
   // ── Phase: detect + compress + save stubs ─────────────────────────────────
 
-  async _prepare(bookId, filename, pages, pageCount) {
+  async _prepare(bookId, filename, pages, pageCount, outline = []) {
     this._progress(20, 'Detecting chapter structure…', 'extract');
     await new Promise(r => setTimeout(r, 0));
     this._check();
 
-    const rawChapters  = detectChapters(pages);
+    const rawChapters  = detectChapters(pages, outline);
     const chapters     = groupChapters(rawChapters, MAX_CHAPTER_GROUPS);
     const aiCallsTotal = chapters.length + 1;
 
-    this._log(`${rawChapters.length} chapters → ${chapters.length} groups → ~${aiCallsTotal} AI calls`);
+    const src = outline && outline.length >= 2 ? 'PDF outline' : 'heading patterns';
+    this._log(`${rawChapters.length} chapters detected (${src}) → ${chapters.length} groups → ~${aiCallsTotal} AI calls`);
+    rawChapters.forEach((ch, i) => this._log(`  [${i + 1}] ${ch.title} (pp. ${ch.pageStart}–${ch.pageEnd})`));
     this._progress(22, `Compressing text for ${chapters.length} chapters…`, 'extract');
 
     // Local compression — no API calls
@@ -301,10 +303,10 @@ export class Pipeline {
 
   // ── Public: run (fresh book) ──────────────────────────────────────────────
 
-  async run(bookId, filename, pages, pageCount) {
+  async run(bookId, filename, pages, pageCount, outline = []) {
     console.log('[pipeline] run() —', bookId, '| pages:', pages.length);
 
-    const { chapters, title, metrics, stub } = await this._prepare(bookId, filename, pages, pageCount);
+    const { chapters, title, metrics, stub } = await this._prepare(bookId, filename, pages, pageCount, outline);
 
     this._progress(25, `AI analysis starting — ${chapters.length} chapters, ${metrics.aiCallsTotal} calls`, 'analyze');
     this._check();
