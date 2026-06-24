@@ -15,7 +15,7 @@ export class OpenAIProvider extends AIProvider {
     let res;
     try {
       res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
+        method:  'POST',
         headers: {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
@@ -39,9 +39,15 @@ export class OpenAIProvider extends AIProvider {
     clearTimeout(timer);
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const msg = err?.error?.message || `HTTP ${res.status}`;
-      throw new Error(`OpenAI error: ${msg}`);
+      const errData = await res.json().catch(() => ({}));
+      const msg     = errData?.error?.message || `HTTP ${res.status}`;
+      const error   = new Error(`OpenAI error: ${msg}`);
+      if (res.status === 429 ||
+          msg.toLowerCase().includes('rate limit') ||
+          msg.toLowerCase().includes('quota')) {
+        error.isRateLimit = true;
+      }
+      throw error;
     }
 
     const data = await res.json();

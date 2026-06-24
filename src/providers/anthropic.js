@@ -1,9 +1,8 @@
 import { AIProvider, registerProvider } from './base.js';
 
 // Note: Anthropic's API does not allow direct browser calls by default.
-// This implementation works when a CORS proxy is configured, or when
-// running in an environment that permits cross-origin requests.
-// For production use, route requests through a lightweight server-side proxy.
+// This works when the anthropic-dangerous-allow-browser header is accepted,
+// or when requests go through a server-side proxy.
 
 export class AnthropicProvider extends AIProvider {
   get name() { return 'Anthropic'; }
@@ -11,8 +10,7 @@ export class AnthropicProvider extends AIProvider {
   async complete(systemPrompt, userPrompt, { maxTokens = 2048, temperature = 0.3 } = {}) {
     this.validateKey();
 
-    const model = this.model || 'claude-haiku-4-5-20251001';
-
+    const model      = this.model || 'claude-haiku-4-5-20251001';
     const controller = new AbortController();
     const timer      = setTimeout(() => controller.abort(), 45000);
 
@@ -43,9 +41,16 @@ export class AnthropicProvider extends AIProvider {
     clearTimeout(timer);
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const msg = err?.error?.message || `HTTP ${res.status}`;
-      throw new Error(`Anthropic error: ${msg}`);
+      const errData = await res.json().catch(() => ({}));
+      const msg     = errData?.error?.message || `HTTP ${res.status}`;
+      const error   = new Error(`Anthropic error: ${msg}`);
+      // 429 = rate limit, 529 = overloaded
+      if (res.status === 429 || res.status === 529 ||
+          msg.toLowerCase().includes('rate limit') ||
+          msg.toLowerCase().includes('overloaded')) {
+        error.isRateLimit = true;
+      }
+      throw error;
     }
 
     const data = await res.json();
