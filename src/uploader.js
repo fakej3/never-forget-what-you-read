@@ -1,11 +1,14 @@
 // PDF text extraction via PDF.js — page-by-page, batched to avoid memory pressure
 
-const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const PDFJS_WORKER = 'lib/pdf.worker.min.js';
 const PAGE_BATCH   = 10; // pages extracted concurrently
 
 export class PDFUploader {
   constructor(onProgress) {
     this.onProgress = onProgress || (() => {});
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('PDF.js library failed to load. Please check your network connection and reload the page.');
+    }
     pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
   }
 

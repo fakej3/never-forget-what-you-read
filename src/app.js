@@ -62,18 +62,18 @@ async function handleFile(ui, file) {
   ui.showProcessing(file.name, '…');
   ui.appendLog(`Loading: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
 
-  const uploader = new PDFUploader(({ status, pct, done, total }) => {
-    const p = pct ?? Math.round((done / total) * 20);
-    ui.setProgress(p, status, 'extract');
-    if (typeof done === 'number' && typeof total === 'number' && total > 1) {
-      if (done % 25 === 0 || done === total) {
-        ui.appendLog(`Extracted ${done} / ${total} pages`);
-      }
-    }
-  });
-
+  let uploader;
   let extractedData;
   try {
+    uploader = new PDFUploader(({ status, pct, done, total }) => {
+      const p = pct ?? Math.round((done / total) * 20);
+      ui.setProgress(p, status, 'extract');
+      if (typeof done === 'number' && typeof total === 'number' && total > 1) {
+        if (done % 25 === 0 || done === total) {
+          ui.appendLog(`Extracted ${done} / ${total} pages`);
+        }
+      }
+    });
     extractedData = await uploader.extract(file);
     console.log('[app] Extraction complete:', extractedData.pageCount, 'pages,', extractedData.pages.length, 'page objects');
     document.getElementById('processing-page-count').textContent = `${extractedData.pageCount} pages`;
