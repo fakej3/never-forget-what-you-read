@@ -23,7 +23,7 @@ const HEADING_PATTERNS = [
 
 const SCAN_LINES               = 10;   // lines to check per page for headings
 const RUNNING_HEADER_THRESHOLD = 0.25; // fraction of pages a line must appear on to be a running header
-const SPARSE_WORDS             = 100;  // word count below which a page is "sparse" (likely a title page)
+const SPARSE_WORDS             = 200;  // word count below which a page may be a chapter title page
 const FALLBACK_SECTION_SIZE    = 25;   // pages per section when all pattern detection fails
 
 // ── Running header suppression ────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function buildRunningHeaders(pages) {
 function isAllCapsHeading(line) {
   if (line.length < 3 || line.length > 80) return false;
   const words = line.split(/\s+/).filter(Boolean);
-  if (words.length < 1 || words.length > 8) return false;
+  if (words.length < 1 || words.length > 12) return false;
   // Must consist entirely of uppercase letters, digits, and common punctuation
   return /^[A-Z0-9\s\-–—:,.'!?"""'']+$/.test(line) && /[A-Z]{2,}/.test(line);
 }
@@ -88,7 +88,7 @@ function findHeading(pageText, runningHeaders) {
   // Pass 2: on sparse pages, also accept ALL-CAPS headings
   // (covers books like T&GR where chapters use descriptive ALL-CAPS names)
   if (isSparse) {
-    for (let i = 0; i < Math.min(6, lines.length); i++) {
+    for (let i = 0; i < Math.min(8, lines.length); i++) {
       const line = lines[i];
       if (runningHeaders.has(line)) continue;
       if (/^\d+$/.test(line))      continue;
