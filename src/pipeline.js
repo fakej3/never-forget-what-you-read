@@ -126,27 +126,50 @@ export class Pipeline {
    * Full pipeline. Returns the complete book record ready to store.
    */
   async run(bookId, filename, pages, pageCount) {
-    // ── Phase 1: Chunk (instant) ──────────────────────────────────────────
+    console.log('[pipeline] run() start — bookId:', bookId, '| pages:', pages.length, '| file:', filename);
+
+    // ── Phase 1: Chunk ────────────────────────────────────────────────────
+    console.log('[pipeline] CHUNK stage starting');
     this._progress(20, 'Analyzing structure and chunking text…', 'chunk');
-    const { chapters, chunks } = buildChunks(pages, bookId);
+
+    let chapters, chunks;
+    try {
+      // Yield to event loop first so the UI can repaint to show Chunk phase
+      await new Promise(r => setTimeout(r, 0));
+      const result = buildChunks(pages, bookId);
+      chapters = result.chapters;
+      chunks   = result.chunks;
+      console.log('[pipeline] CHUNK complete — chapters:', chapters.length, '| chunks:', chunks.length);
+    } catch (err) {
+      console.error('[pipeline] CHUNK stage threw:', err);
+      throw new Error(`Chunking failed: ${err.message}`);
+    }
+
     this._log(`Detected ${chapters.length} chapter(s), ${chunks.length} chunk(s)`);
     this._check();
 
-    // Persist chapters skeletons immediately
-    for (let i = 0; i < chapters.length; i++) {
-      const ch = chapters[i];
-      await Storage.saveChapter({
-        id:        `${bookId}-ch-${i}`,
-        bookId,
-        index:     i,
-        title:     ch.title,
-        pageStart: ch.pageStart,
-        pageEnd:   ch.pageEnd,
-        summary:   null,
-      });
+    // Persist chapter skeletons immediately
+    try {
+      for (let i = 0; i < chapters.length; i++) {
+        const ch = chapters[i];
+        await Storage.saveChapter({
+          id:        `${bookId}-ch-${i}`,
+          bookId,
+          index:     i,
+          title:     ch.title,
+          pageStart: ch.pageStart,
+          pageEnd:   ch.pageEnd,
+          summary:   null,
+        });
+      }
+      console.log('[pipeline] Chapter skeletons saved to DB');
+    } catch (err) {
+      console.error('[pipeline] Failed saving chapter skeletons:', err);
+      throw new Error(`Database write failed (chapters): ${err.message}`);
     }
 
     // ── Phase 2: Chunk summaries ──────────────────────────────────────────
+    console.log('[pipeline] SUMMARIZE stage starting —', chunks.length, 'chunks');
     this._progress(25, `Summarizing ${chunks.length} chunks…`, 'summarize');
     let summarized = 0;
 
@@ -180,8 +203,10 @@ export class Pipeline {
     }, AI_CONCURRENCY);
 
     this._check();
+    console.log('[pipeline] All chunk summaries complete');
 
     // ── Phase 3: Chapter summaries ────────────────────────────────────────
+    console.log('[pipeline] Chapter summary stage starting');
     this._progress(65, `Generating ${chapters.length} chapter summaries…`, 'summarize');
 
     const chapterSummaries = [];
@@ -238,9 +263,11 @@ export class Pipeline {
         );
 
     this._log('✓ Book summary complete');
+    console.log('[pipeline] Book summary complete');
     this._check();
 
     // ── Phase 5: Knowledge extraction ─────────────────────────────────────
+    console.log('[pipeline] KNOWLEDGE extraction stage starting');
     this._progress(85, 'Extracting knowledge — concepts, quotes, principles…', 'knowledge');
 
     let knowledge = { concepts: [], principles: [], quotes: [], actionableIdeas: [], vocabulary: [] };
@@ -296,6 +323,7 @@ export class Pipeline {
     await Storage.saveBook(book);
     this._progress(100, 'Complete', 'complete');
     this._log('✓ Book archived — never needs reprocessing');
+    console.log('[pipeline] run() COMPLETE — book saved:', book.title);
 
     return book;
   }
