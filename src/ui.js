@@ -185,14 +185,26 @@ export class UI {
   async renderLibrary() {
     const books = await Storage.getAllBooks();
     const grid  = document.getElementById('book-grid');
-    const empty = document.getElementById('empty-library');
     const count = document.getElementById('book-count');
 
     count.textContent = `${books.length} book${books.length !== 1 ? 's' : ''}`;
-    grid.innerHTML    = '';
+
+    // Remove only book cards — never destroy #empty-library via innerHTML reset
+    grid.querySelectorAll('.book-card').forEach(el => el.remove());
+
+    // #empty-library may have been detached by a prior innerHTML='' call; re-anchor it
+    let empty = document.getElementById('empty-library');
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.id = 'empty-library';
+      empty.className = 'empty-library';
+      empty.innerHTML = '<p>No books processed yet.</p><p class="muted">Upload a PDF above to begin building your knowledge archive.</p>';
+      grid.appendChild(empty);
+    } else if (!grid.contains(empty)) {
+      grid.appendChild(empty);
+    }
 
     if (books.length === 0) {
-      grid.appendChild(empty);
       empty.classList.remove('hidden');
       return;
     }
