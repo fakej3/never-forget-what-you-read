@@ -38,6 +38,10 @@ async function init() {
       console.error('[app] handleDelete failed:', err);
       ui.showError(`Could not delete book: ${err.message}`);
     }),
+    onBookResume:       (bookId) => handleResume(ui, bookId).catch(err => {
+      console.error('[app] handleResume failed:', err);
+      ui.showError(`Resume failed: ${err.message}`);
+    }),
     onCancelProcessing: ()       => handleCancel(),
   });
 
@@ -45,6 +49,14 @@ async function init() {
 }
 
 // ── Handlers ───────────────────────────────────────────────────────────────
+
+function makePipelineCallback(ui) {
+  return ({ pct, status, phase, log, metrics }) => {
+    if (log)     ui.appendLog(log);
+    if (status)  ui.setProgress(pct ?? 0, status, phase ?? 'analyze');
+    if (metrics) ui.updateMetrics(metrics);
+  };
+}
 
 async function handleFile(ui, file) {
   if (activePipeline || activeUploader) {
@@ -133,11 +145,8 @@ async function handleFile(ui, file) {
     return;
   }
 
-  // ── Phases 2–6: AI Pipeline ───────────────────────────────────────────
-  activePipeline = new Pipeline(provider, ({ pct, status, phase, log }) => {
-    if (log)    ui.appendLog(log);
-    if (status) ui.setProgress(pct ?? 0, status, phase ?? 'summarize');
-  });
+  // ── AI Pipeline ───────────────────────────────────────────────────────
+  activePipeline = new Pipeline(provider, makePipelineCallback(ui));
 
   try {
     console.log('[app] Starting pipeline for bookId:', bookId);
@@ -154,18 +163,77 @@ async function handleFile(ui, file) {
     } else {
       console.error('[app] Pipeline failed:', err);
 
-      // Try to persist error status so the card shows and can be deleted
-      const book = await Storage.getBook(bookId).catch(() => null);
-      if (book) {
-        book.status = 'error';
-        await Storage.saveBook(book).catch(() => {});
+      // On quota hit the book is already 'extracted' in DB — leave it resumable.
+      // Only mark 'error' for non-quota failures.
+      if (!err.isRateLimit) {
+        const book = await Storage.getBook(bookId).catch(() => null);
+        if (book && book.status !== 'extracted') {
+          book.status = 'error';
+          await Storage.saveBook(book).catch(() => {});
+        }
       }
 
       ui.hideProcessing();
 
       const msg = err.isRateLimit
-        ? `API quota or rate limit reached. Check your ${cfg.provider} plan and try again later.`
+        ? `API quota or rate limit reached. The book is saved as "Ready to Analyze" — configure a key with remaining quota and click Resume.`
         : `Processing failed: ${err.message}`;
+      ui.showError(msg);
+
+      await ui.renderLibrary();
+    }
+  } finally {
+    activePipeline = null;
+  }
+}
+
+async function handleResume(ui, bookId) {
+  if (activePipeline || activeUploader) {
+    ui.showError('A book is already being processed. Please wait or cancel it first.');
+    return;
+  }
+
+  const cfg = await ui.getProviderConfig();
+  if (!cfg.apiKey) {
+    ui.showError('Please configure your API key before resuming. Click "Configure API" in the header.');
+    ui.openSettings();
+    return;
+  }
+
+  const book = await Storage.getBook(bookId).catch(() => null);
+  if (!book) { ui.showError('Book not found.'); return; }
+
+  ui.showProcessing(book.filename || book.title, book.pageCount || '…');
+  if (book.pipelineMetrics) ui.updateMetrics(book.pipelineMetrics);
+  ui.appendLog(`Resuming: ${book.title}`);
+
+  const provider = createProvider(cfg.provider, cfg.apiKey, cfg.model);
+  activePipeline = new Pipeline(provider, makePipelineCallback(ui));
+
+  try {
+    await activePipeline.resume(bookId);
+    ui.hideProcessing();
+    await ui.renderLibrary();
+  } catch (err) {
+    if (err.message === 'Processing cancelled.') {
+      ui.hideProcessing();
+      await ui.renderLibrary();
+    } else {
+      console.error('[app] Resume pipeline failed:', err);
+
+      if (!err.isRateLimit) {
+        const b = await Storage.getBook(bookId).catch(() => null);
+        if (b && b.status !== 'extracted') {
+          b.status = 'error';
+          await Storage.saveBook(b).catch(() => {});
+        }
+      }
+
+      ui.hideProcessing();
+
+      const msg = err.isRateLimit
+        ? `API quota or rate limit reached. Progress is saved — try again later.`
+        : `Resume failed: ${err.message}`;
       ui.showError(msg);
 
       await ui.renderLibrary();

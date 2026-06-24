@@ -152,6 +152,7 @@ export class UI {
     if (pages) pages.textContent = pageCount !== '…' ? `${pageCount} pages` : '';
     if (log)   log.innerHTML     = '';
 
+    $('metrics-bar')?.classList.add('hidden');
     this.setProgress(0, 'Reading file…', 'extract');
     $('upload-section')?.classList.add('hidden');
     $('processing-section')?.classList.remove('hidden');
@@ -160,6 +161,7 @@ export class UI {
   hideProcessing() {
     $('processing-section')?.classList.add('hidden');
     $('upload-section')?.classList.remove('hidden');
+    $('metrics-bar')?.classList.add('hidden');
   }
 
   setProgress(pct, status, phase) {
@@ -185,8 +187,22 @@ export class UI {
     log.scrollTop = log.scrollHeight;
   }
 
+  updateMetrics(metrics) {
+    if (!metrics) return;
+    const bar = $('metrics-bar');
+    if (bar) bar.classList.remove('hidden');
+    const pages    = $('metric-pages');
+    const chapters = $('metric-chapters');
+    const calls    = $('metric-ai-calls');
+    if (pages)    pages.textContent    = metrics.pages    ?? '—';
+    if (chapters) chapters.textContent = metrics.chapters ?? '—';
+    if (calls)    calls.textContent    = metrics.aiCallsTotal != null
+      ? `${metrics.aiCallsDone ?? 0} / ${metrics.aiCallsTotal}`
+      : '—';
+  }
+
   _updatePhaseTrack(activePhase) {
-    const order = ['extract', 'chunk', 'summarize', 'knowledge', 'complete'];
+    const order = ['extract', 'analyze', 'complete'];
     const idx   = order.indexOf(activePhase);
 
     $$('.phase-step').forEach((el, i) => {
@@ -259,12 +275,14 @@ export class UI {
     const statusClass = {
       complete:   'status-complete',
       processing: 'status-processing',
+      extracted:  'status-extracted',
       error:      'status-error',
     }[book.status] || 'status-processing';
 
     const statusLabel = {
       complete:   '✓ Complete',
       processing: '⟳ Processing',
+      extracted:  '⧖ Ready to Analyze',
       error:      '✕ Error',
     }[book.status] || (book.status || 'Unknown');
 
@@ -288,15 +306,29 @@ export class UI {
     if (book.status === 'complete') {
       card.addEventListener('click', () => this.cb.onBookOpen(book.id));
     } else {
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;';
+
+      if (book.status === 'extracted' && this.cb.onBookResume) {
+        const resumeBtn       = document.createElement('button');
+        resumeBtn.className   = 'btn-ghost btn-sm btn-resume';
+        resumeBtn.textContent = '▶ Resume AI';
+        resumeBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          this.cb.onBookResume(book.id);
+        });
+        actions.appendChild(resumeBtn);
+      }
+
       const delBtn       = document.createElement('button');
       delBtn.className   = 'btn-ghost btn-sm btn-danger-ghost';
       delBtn.textContent = 'Remove';
-      delBtn.style.marginTop = '0.5rem';
       delBtn.addEventListener('click', e => {
         e.stopPropagation();
         this.openDeleteModal(book.id);
       });
-      card.appendChild(delBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
     }
 
     return card;
