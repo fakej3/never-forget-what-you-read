@@ -191,13 +191,17 @@ export class UI {
     if (!metrics) return;
     const bar = $('metrics-bar');
     if (bar) bar.classList.remove('hidden');
-    const pages    = $('metric-pages');
-    const chapters = $('metric-chapters');
-    const calls    = $('metric-ai-calls');
-    if (pages)    pages.textContent    = metrics.pages    ?? '—';
-    if (chapters) chapters.textContent = metrics.chapters ?? '—';
-    if (calls)    calls.textContent    = metrics.aiCallsTotal != null
+
+    if ($('metric-pages'))    $('metric-pages').textContent    = metrics.pages ?? '—';
+    if ($('metric-chapters')) $('metric-chapters').textContent = metrics.aiCallsTotal != null
+      ? `${metrics.aiCallsDone ?? 0} / ${metrics.chapters ?? '—'}`
+      : (metrics.chapters ?? '—');
+    if ($('metric-ai-calls')) $('metric-ai-calls').textContent = metrics.aiCallsTotal != null
       ? `${metrics.aiCallsDone ?? 0} / ${metrics.aiCallsTotal}`
+      : '—';
+    if ($('metric-session'))  $('metric-session').textContent  = metrics.sessionRequests ?? '—';
+    if ($('metric-rate'))     $('metric-rate').textContent     = metrics.remainingThisMinute != null
+      ? `${metrics.remainingThisMinute}/12`
       : '—';
   }
 
@@ -273,17 +277,19 @@ export class UI {
     card.dataset.bookId = book.id || '';
 
     const statusClass = {
-      complete:   'status-complete',
-      processing: 'status-processing',
-      extracted:  'status-extracted',
-      error:      'status-error',
+      complete:       'status-complete',
+      processing:     'status-processing',
+      extracted:      'status-extracted',
+      'rate-limited': 'status-rate-limited',
+      error:          'status-error',
     }[book.status] || 'status-processing';
 
     const statusLabel = {
-      complete:   '✓ Complete',
-      processing: '⟳ Processing',
-      extracted:  '⧖ Ready to Analyze',
-      error:      '✕ Error',
+      complete:       '✓ Complete',
+      processing:     '⟳ Processing',
+      extracted:      '⧖ Ready to Analyze',
+      'rate-limited': '⏸ Paused — Rate Limited',
+      error:          '✕ Error',
     }[book.status] || (book.status || 'Unknown');
 
     const date = book.createdAt
@@ -309,7 +315,7 @@ export class UI {
       const actions = document.createElement('div');
       actions.style.cssText = 'display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;';
 
-      if (book.status === 'extracted' && this.cb.onBookResume) {
+      if ((book.status === 'extracted' || book.status === 'rate-limited') && this.cb.onBookResume) {
         const resumeBtn       = document.createElement('button');
         resumeBtn.className   = 'btn-ghost btn-sm btn-resume';
         resumeBtn.textContent = '▶ Resume AI';

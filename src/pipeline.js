@@ -3,25 +3,19 @@
 import { detectChapters }                 from './chunker.js';
 import { compressChapter, groupChapters } from './compressor.js';
 import { Storage }                        from './storage.js';
+import { rateLimiter }                    from './rate-limiter.js';
 
-const MAX_CHAPTER_GROUPS = 15;   // caps total AI calls at 16 (groups + book summary)
+const MAX_CHAPTER_GROUPS = 30;   // preserve actual chapter count; only merge for very long books
 const COMPRESS_TARGET    = 15000; // chars sent to AI per chapter
 const MAX_RETRIES        = 2;
 const RETRY_BASE_MS      = 3000;
 
 // ── Prompts ──────────────────────────────────────────────────────────────────
 
-const SYSTEM = `You are an expert at extracting and preserving knowledge from books. Be concise, precise, and comprehensive. Never add padding or filler. Always return valid JSON when asked.`;
+// JSON schema lives in the system prompt so it is not repeated per chapter call
+const SYSTEM = `You are an expert at extracting and preserving knowledge from books. Be concise, precise, and comprehensive. Never add padding or filler.
 
-function promptChapter(title, text) {
-  return `Analyze the following book chapter and return a JSON object containing all extractable knowledge.
-
-CHAPTER: "${title}"
-
-TEXT:
-${text}
-
-Return ONLY valid JSON with this exact structure:
+Always return ONLY valid JSON with this exact structure:
 {
   "summary": "4-8 sentence cohesive summary capturing the main themes, arguments, and key insights",
   "concepts": ["core concept 1", "core concept 2"],
@@ -31,13 +25,21 @@ Return ONLY valid JSON with this exact structure:
   "quotes": [{"text": "memorable passage or paraphrase", "context": "brief context"}]
 }
 
-Extract:
+Extract from each chapter:
 - summary: 4-8 sentences covering main theme and arguments
 - concepts: 4-8 core concepts (short noun phrases)
 - principles: 3-6 key principles or rules stated or implied
 - actionableIdeas: 3-6 specific actions a reader can take from this chapter
 - vocabulary: 3-6 important terms or specialized language defined here
 - quotes: 2-4 memorable quotes or important passages`;
+
+function promptChapter(title, text) {
+  return `Analyze this book chapter and extract all knowledge.
+
+CHAPTER: "${title}"
+
+TEXT:
+${text}`;
 }
 
 function promptBookSummary(chapterSummaries) {
@@ -132,12 +134,26 @@ export class Pipeline {
   _progress(pct, status, phase) { this.onProgress({ pct, status, phase }); }
   _log(msg)                     { this.onProgress({ log: msg }); }
 
+  _emitMetrics(metrics) {
+    this.onProgress({
+      metrics: {
+        ...metrics,
+        sessionRequests:     rateLimiter.sessionTotal,
+        remainingThisMinute: rateLimiter.remainingThisMinute,
+      },
+    });
+  }
+
   async _call(fn, label) {
     let lastErr;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        return await fn();
+        await rateLimiter.throttle();
+        const result = await fn();
+        rateLimiter.markEnd();
+        return result;
       } catch (err) {
+        rateLimiter.markEnd();
         if (err.message === 'Processing cancelled.') throw err;
         if (err.isRateLimit) { this._log(`⚠ ${label}: quota/rate-limit reached`); throw err; }
         lastErr = err;
@@ -167,13 +183,11 @@ export class Pipeline {
     rawChapters.forEach((ch, i) => this._log(`  [${i + 1}] ${ch.title} (pp. ${ch.pageStart}–${ch.pageEnd})`));
     this._progress(22, `Compressing text for ${chapters.length} chapters…`, 'extract');
 
-    // Local compression — no API calls
     for (let i = 0; i < chapters.length; i++) {
       const rawText = chapters[i].pages.map(p => p.text).join('\n\n');
       chapters[i]   = { ...chapters[i], compressedText: compressChapter(rawText, COMPRESS_TARGET) };
     }
 
-    // Save chapter stubs with compressedText for resumability
     for (let i = 0; i < chapters.length; i++) {
       const ch = chapters[i];
       await Storage.saveChapter({
@@ -190,7 +204,6 @@ export class Pipeline {
       }).catch(e => console.error('[pipeline] saveChapter stub failed:', e));
     }
 
-    // Mark 'extracted' — survives any subsequent quota failure
     const stub    = await Storage.getBook(bookId).catch(() => null);
     const title   = stub?.title || inferTitle(filename);
     const metrics = { pages: pageCount, chapters: chapters.length, aiCallsTotal, aiCallsDone: 0 };
@@ -213,7 +226,6 @@ export class Pipeline {
   // ── Phase: AI per chapter ─────────────────────────────────────────────────
 
   async _analyzeChapters(bookId, chapters, metrics) {
-    const { aiCallsTotal } = metrics;
     const chapterKnowledge = [];
     let   aiCallsDone      = 0;
 
@@ -232,7 +244,7 @@ export class Pipeline {
         knowledge = parseChapterKnowledge(raw) || emptyKnowledge();
       } catch (err) {
         if (err.message === 'Processing cancelled.') throw err;
-        if (err.isRateLimit) throw err; // caller handles persistence
+        if (err.isRateLimit) throw err;
         this._log(`⚠ Chapter ${i + 1} failed: ${err.message}`);
       }
 
@@ -253,7 +265,7 @@ export class Pipeline {
       }).catch(e => console.error('[pipeline] saveChapter result failed:', e));
 
       this._log(`✓ Chapter ${i + 1} / ${chapters.length} analyzed`);
-      this.onProgress({ metrics: { ...metrics, aiCallsDone } });
+      this._emitMetrics({ ...metrics, aiCallsDone });
     }
 
     return { chapterKnowledge, aiCallsDone };
@@ -299,6 +311,7 @@ export class Pipeline {
 
     this._progress(100, 'Complete', 'complete');
     this._log('✓ Book archived — never needs reprocessing');
+    this._emitMetrics(finalMetrics);
   }
 
   // ── Public: run (fresh book) ──────────────────────────────────────────────
@@ -309,6 +322,7 @@ export class Pipeline {
     const { chapters, title, metrics, stub } = await this._prepare(bookId, filename, pages, pageCount, outline);
 
     this._progress(25, `AI analysis starting — ${chapters.length} chapters, ${metrics.aiCallsTotal} calls`, 'analyze');
+    this._emitMetrics(metrics);
     this._check();
 
     let chapterKnowledge, aiCallsDone;
@@ -316,8 +330,9 @@ export class Pipeline {
       ({ chapterKnowledge, aiCallsDone } = await this._analyzeChapters(bookId, chapters, metrics));
     } catch (err) {
       if (err.isRateLimit) {
-        // Book is already 'extracted' in DB — user can resume later
-        console.log('[pipeline] Quota hit during chapter analysis — progress saved');
+        console.log('[pipeline] Quota hit during chapter analysis — marking rate-limited');
+        const book = await Storage.getBook(bookId).catch(() => null);
+        if (book) await Storage.saveBook({ ...book, status: 'rate-limited' }).catch(() => {});
         throw err;
       }
       throw err;
@@ -328,7 +343,9 @@ export class Pipeline {
       await this._finalize(bookId, chapterKnowledge, aiCallsDone, existingBook, metrics);
     } catch (err) {
       if (err.isRateLimit) {
-        console.log('[pipeline] Quota hit during book summary — chapter progress saved');
+        console.log('[pipeline] Quota hit during book summary — marking rate-limited');
+        const book = await Storage.getBook(bookId).catch(() => null);
+        if (book) await Storage.saveBook({ ...book, status: 'rate-limited' }).catch(() => {});
         throw err;
       }
       throw err;
@@ -355,15 +372,15 @@ export class Pipeline {
 
     this._log(`Resuming: ${alreadyDone} / ${allChapters.length} chapters already processed`);
 
-    // Pre-populate from DB
     const chapterKnowledge = allChapters.map(ch => ch.aiKnowledge || (ch.aiProcessed ? emptyKnowledge() : null));
     const metrics = { pages: pageCount, chapters: allChapters.length, aiCallsTotal, aiCallsDone: alreadyDone };
+    this._emitMetrics(metrics);
 
     let aiCallsDone = alreadyDone;
 
     for (let i = 0; i < allChapters.length; i++) {
       const ch = allChapters[i];
-      if (ch.aiProcessed) continue;
+      if (ch.aiProcessed) continue; // never reprocess completed chapters
 
       this._check();
       const pct = 25 + Math.round((i / allChapters.length) * 60);
@@ -379,7 +396,7 @@ export class Pipeline {
       } catch (err) {
         if (err.message === 'Processing cancelled.') throw err;
         if (err.isRateLimit) {
-          await Storage.saveBook({ ...book, status: 'extracted', pipelineMetrics: { ...metrics, aiCallsDone } }).catch(() => {});
+          await Storage.saveBook({ ...book, status: 'rate-limited', pipelineMetrics: { ...metrics, aiCallsDone } }).catch(() => {});
           throw err;
         }
         this._log(`⚠ Chapter ${i + 1} failed: ${err.message}`);
@@ -390,7 +407,7 @@ export class Pipeline {
 
       await Storage.saveChapter({ ...ch, aiProcessed: true, summary: knowledge.summary, aiKnowledge: knowledge }).catch(() => {});
       this._log(`✓ Chapter ${i + 1} / ${allChapters.length} analyzed`);
-      this.onProgress({ metrics: { ...metrics, aiCallsDone } });
+      this._emitMetrics({ ...metrics, aiCallsDone });
     }
 
     this._check();

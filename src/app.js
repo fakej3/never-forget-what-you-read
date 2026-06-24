@@ -163,11 +163,9 @@ async function handleFile(ui, file) {
     } else {
       console.error('[app] Pipeline failed:', err);
 
-      // On quota hit the book is already 'extracted' in DB — leave it resumable.
-      // Only mark 'error' for non-quota failures.
       if (!err.isRateLimit) {
         const book = await Storage.getBook(bookId).catch(() => null);
-        if (book && book.status !== 'extracted') {
+        if (book && book.status !== 'extracted' && book.status !== 'rate-limited') {
           book.status = 'error';
           await Storage.saveBook(book).catch(() => {});
         }
@@ -176,7 +174,7 @@ async function handleFile(ui, file) {
       ui.hideProcessing();
 
       const msg = err.isRateLimit
-        ? `API quota or rate limit reached. The book is saved as "Ready to Analyze" — configure a key with remaining quota and click Resume.`
+        ? `Quota reached. Progress is saved — click "Resume AI" when your quota resets to continue without losing progress.`
         : `Processing failed: ${err.message}`;
       ui.showError(msg);
 
@@ -223,7 +221,7 @@ async function handleResume(ui, bookId) {
 
       if (!err.isRateLimit) {
         const b = await Storage.getBook(bookId).catch(() => null);
-        if (b && b.status !== 'extracted') {
+        if (b && b.status !== 'extracted' && b.status !== 'rate-limited') {
           b.status = 'error';
           await Storage.saveBook(b).catch(() => {});
         }
@@ -232,7 +230,7 @@ async function handleResume(ui, bookId) {
       ui.hideProcessing();
 
       const msg = err.isRateLimit
-        ? `API quota or rate limit reached. Progress is saved — try again later.`
+        ? `Quota reached again. Progress is saved — try again when your quota resets.`
         : `Resume failed: ${err.message}`;
       ui.showError(msg);
 

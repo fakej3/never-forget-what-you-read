@@ -335,10 +335,11 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   padding: 0.2rem 0.55rem;
   border-radius: 20px;
 }
-.status-complete   { background: var(--success-dim); color: var(--success); }
-.status-processing { background: var(--accent-dim);  color: var(--accent-hover); }
-.status-extracted  { background: rgba(245,158,11,0.12); color: #f59e0b; }
-.status-error      { background: var(--error-dim);   color: var(--error); }
+.status-complete      { background: var(--success-dim); color: var(--success); }
+.status-processing    { background: var(--accent-dim);  color: var(--accent-hover); }
+.status-extracted     { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.status-rate-limited  { background: rgba(239,68,68,0.10); color: #f87171; }
+.status-error         { background: var(--error-dim);   color: var(--error); }
 
 .btn-resume { color: var(--accent-hover); border-color: rgba(99,102,241,0.35); }
 .btn-resume:hover { background: var(--accent-dim); color: var(--accent-hover); }
