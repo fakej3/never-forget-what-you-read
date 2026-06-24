@@ -3,10 +3,10 @@
 import { buildChunks } from './chunker.js';
 import { Storage }     from './storage.js';
 
-const AI_CONCURRENCY  = 3;   // parallel AI calls at once
-const MAX_RETRIES     = 3;   // per AI call
+const AI_CONCURRENCY  = 3;
+const MAX_RETRIES     = 3;
 const RETRY_DELAY_MS  = 2000; // base delay, doubles each attempt
-const FETCH_TIMEOUT_MS = 45000;
+const FETCH_TIMEOUT_MS = 45000; // eslint-disable-line no-unused-vars (kept for reference)
 
 // ── Prompts ────────────────────────────────────────────────────────────────
 
@@ -76,6 +76,13 @@ async function withRetry(fn, label, logFn) {
       return await fn();
     } catch (err) {
       if (err.message === 'Processing cancelled.') throw err;
+
+      // Rate-limit / quota errors: surface immediately, never hammer the API
+      if (err.isRateLimit) {
+        logFn(`⚠ ${label}: rate limit or quota exceeded — ${err.message}`);
+        throw err;
+      }
+
       lastErr = err;
       if (attempt < MAX_RETRIES) {
         const delay = RETRY_DELAY_MS * attempt;
@@ -122,9 +129,6 @@ export class Pipeline {
     this.onProgress({ log: msg });
   }
 
-  /**
-   * Full pipeline. Returns the complete book record ready to store.
-   */
   async run(bookId, filename, pages, pageCount) {
     console.log('[pipeline] run() start — bookId:', bookId, '| pages:', pages.length, '| file:', filename);
 
@@ -134,8 +138,7 @@ export class Pipeline {
 
     let chapters, chunks;
     try {
-      // Yield to event loop first so the UI can repaint to show Chunk phase
-      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0)); // yield for UI repaint
       const result = buildChunks(pages, bookId);
       chapters = result.chapters;
       chunks   = result.chunks;
@@ -176,30 +179,50 @@ export class Pipeline {
     const chunkResults = await runBatch(chunks, async (chunk) => {
       this._check();
 
-      // Skip empty chunks (e.g. blank pages grouped as a chapter)
       if (!chunk.text.trim()) {
         return { ...chunk, bookId, summary: '' };
       }
 
-      const summary = await withRetry(
-        () => this.provider.complete(
-          SYSTEM_SUMMARIZER,
-          promptChunkSummary(chunk.chapterTitle, chunk.text),
-          { maxTokens: 512, temperature: 0.2 }
-        ),
-        `Chunk ${chunk.id}`,
-        (msg) => this._log(msg)
-      );
+      let summary;
+      try {
+        summary = await withRetry(
+          () => this.provider.complete(
+            SYSTEM_SUMMARIZER,
+            promptChunkSummary(chunk.chapterTitle, chunk.text),
+            { maxTokens: 512, temperature: 0.2 }
+          ),
+          `Chunk ${chunk.id}`,
+          (msg) => this._log(msg)
+        );
+      } catch (err) {
+        if (err.message === 'Processing cancelled.') throw err;
+        // Rate-limit errors abort the whole pipeline so the user can act
+        if (err.isRateLimit) throw err;
+        // Other errors: log and skip this chunk rather than killing the pipeline
+        this._log(`⚠ Chunk ${chunk.id} skipped after retries: ${err.message}`);
+        summary = '';
+      }
 
       summarized++;
       const pct = 25 + Math.round((summarized / chunks.length) * 40);
       this._progress(pct, `Chunk ${summarized} / ${chunks.length} summarized`, 'summarize');
-      this._log(`✓ Chunk ${chunk.id} summarized`);
+      if (summary) this._log(`✓ Chunk ${chunk.id} summarized`);
 
-      // Store WITHOUT raw text — only summary is needed after this point
-      const record = { id: chunk.id, bookId, chapterIndex: chunk.chapterIndex, chunkIndex: chunk.chunkIndex, chapterTitle: chunk.chapterTitle, pageStart: chunk.pageStart, pageEnd: chunk.pageEnd, summary };
-      await Storage.saveChunk(record);
-      return { ...chunk, bookId, summary }; // keep text in memory for this run only
+      const record = {
+        id:           chunk.id,
+        bookId,
+        chapterIndex: chunk.chapterIndex,
+        chunkIndex:   chunk.chunkIndex,
+        chapterTitle: chunk.chapterTitle,
+        pageStart:    chunk.pageStart,
+        pageEnd:      chunk.pageEnd,
+        summary,
+      };
+      await Storage.saveChunk(record).catch(e => {
+        console.error('[pipeline] Failed to save chunk:', chunk.id, e);
+      });
+
+      return { ...chunk, bookId, summary };
     }, AI_CONCURRENCY);
 
     this._check();
@@ -213,12 +236,17 @@ export class Pipeline {
 
     for (let i = 0; i < chapters.length; i++) {
       this._check();
-      const chapterChunks   = chunkResults.filter(c => c.chapterIndex === i);
-      const chunkSummaries  = chapterChunks.map(c => c.summary).filter(Boolean);
+      const chapterChunks  = chunkResults.filter(c => c.chapterIndex === i);
+      const chunkSummaries = chapterChunks.map(c => c.summary).filter(Boolean);
 
-      const summary = chunkSummaries.length === 1
-        ? chunkSummaries[0]
-        : await withRetry(
+      let summary;
+      if (chunkSummaries.length === 0) {
+        summary = '';
+      } else if (chunkSummaries.length === 1) {
+        summary = chunkSummaries[0];
+      } else {
+        try {
+          summary = await withRetry(
             () => this.provider.complete(
               SYSTEM_SUMMARIZER,
               promptChapterSummary(chapters[i].title, chunkSummaries),
@@ -227,9 +255,17 @@ export class Pipeline {
             `Chapter ${i + 1} summary`,
             (msg) => this._log(msg)
           );
+        } catch (err) {
+          if (err.message === 'Processing cancelled.') throw err;
+          if (err.isRateLimit) throw err;
+          // Fallback: join chunk summaries directly
+          this._log(`⚠ Chapter ${i + 1} summary failed, using chunk summaries: ${err.message}`);
+          summary = chunkSummaries.join(' ');
+        }
+      }
 
       chapterSummaries.push(summary);
-      this._log(`✓ Chapter "${chapters[i].title}" summarized`);
+      if (summary) this._log(`✓ Chapter "${chapters[i].title}" summarized`);
 
       await Storage.saveChapter({
         id:        `${bookId}-ch-${i}`,
@@ -239,7 +275,7 @@ export class Pipeline {
         pageStart: chapters[i].pageStart,
         pageEnd:   chapters[i].pageEnd,
         summary,
-      });
+      }).catch(e => console.error('[pipeline] Failed to save chapter summary:', e));
 
       const pct = 65 + Math.round(((i + 1) / chapters.length) * 15);
       this._progress(pct, `Chapter ${i + 1} / ${chapters.length} summarized`, 'summarize');
@@ -250,17 +286,29 @@ export class Pipeline {
     // ── Phase 4: Book summary ─────────────────────────────────────────────
     this._progress(80, 'Generating book summary…', 'summarize');
 
-    const bookSummary = chapterSummaries.length === 1
-      ? chapterSummaries[0]
-      : await withRetry(
-          () => this.provider.complete(
-            SYSTEM_SUMMARIZER,
-            promptBookSummary(chapterSummaries),
-            { maxTokens: 1024, temperature: 0.25 }
-          ),
-          'Book summary',
-          (msg) => this._log(msg)
-        );
+    const validChapterSummaries = chapterSummaries.filter(Boolean);
+    let bookSummary = '';
+
+    if (validChapterSummaries.length > 0) {
+      try {
+        bookSummary = validChapterSummaries.length === 1
+          ? validChapterSummaries[0]
+          : await withRetry(
+              () => this.provider.complete(
+                SYSTEM_SUMMARIZER,
+                promptBookSummary(validChapterSummaries),
+                { maxTokens: 1024, temperature: 0.25 }
+              ),
+              'Book summary',
+              (msg) => this._log(msg)
+            );
+      } catch (err) {
+        if (err.message === 'Processing cancelled.') throw err;
+        if (err.isRateLimit) throw err;
+        this._log(`⚠ Book summary failed, using first chapter summary: ${err.message}`);
+        bookSummary = validChapterSummaries[0] || '';
+      }
+    }
 
     this._log('✓ Book summary complete');
     console.log('[pipeline] Book summary complete');
@@ -276,48 +324,54 @@ export class Pipeline {
       const raw = await withRetry(
         () => this.provider.complete(
           SYSTEM_SUMMARIZER,
-          promptKnowledge(bookSummary, chapterSummaries),
+          promptKnowledge(bookSummary, validChapterSummaries),
           { maxTokens: 2048, temperature: 0.3 }
         ),
         'Knowledge extraction',
         (msg) => this._log(msg)
       );
 
-      // Extract JSON even if model wraps it in a markdown code block
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        // Normalise — guard against model returning wrong field names
         knowledge = {
-          concepts:       Array.isArray(parsed.concepts)       ? parsed.concepts       : [],
-          principles:     Array.isArray(parsed.principles)     ? parsed.principles     : [],
-          quotes:         Array.isArray(parsed.quotes)         ? parsed.quotes         : [],
-          actionableIdeas:Array.isArray(parsed.actionableIdeas)? parsed.actionableIdeas: [],
-          vocabulary:     Array.isArray(parsed.vocabulary)     ? parsed.vocabulary     : [],
+          concepts:        Array.isArray(parsed.concepts)        ? parsed.concepts        : [],
+          principles:      Array.isArray(parsed.principles)      ? parsed.principles      : [],
+          quotes:          Array.isArray(parsed.quotes)          ? parsed.quotes          : [],
+          actionableIdeas: Array.isArray(parsed.actionableIdeas) ? parsed.actionableIdeas : [],
+          vocabulary:      Array.isArray(parsed.vocabulary)      ? parsed.vocabulary      : [],
         };
       } else {
         this._log('⚠ Knowledge JSON not found in response — empty knowledge saved');
       }
       this._log('✓ Knowledge extraction complete');
     } catch (err) {
-      this._log(`⚠ Knowledge extraction failed after retries: ${err.message} — empty knowledge saved`);
+      if (err.message === 'Processing cancelled.') throw err;
+      if (err.isRateLimit) throw err;
+      this._log(`⚠ Knowledge extraction failed: ${err.message} — book saved without knowledge`);
     }
 
-    await Storage.saveKnowledge({ bookId, ...knowledge });
+    await Storage.saveKnowledge({ bookId, ...knowledge }).catch(e => {
+      console.error('[pipeline] Failed to save knowledge:', e);
+    });
 
     // ── Phase 6: Finalise book record ─────────────────────────────────────
     this._progress(98, 'Saving to archive…', 'complete');
 
     const title = this._inferTitle(filename, chapters);
-    const book  = {
-      id:        bookId,
+
+    // Preserve createdAt from the stub so sort order reflects upload time
+    const existingBook = await Storage.getBook(bookId).catch(() => null);
+
+    const book = {
+      id:           bookId,
       title,
       filename,
       pageCount,
       chapterCount: chapters.length,
-      summary:   bookSummary,
-      status:    'complete',
-      createdAt: Date.now(),
+      summary:      bookSummary,
+      status:       'complete',
+      createdAt:    existingBook?.createdAt || Date.now(),
     };
 
     await Storage.saveBook(book);
@@ -329,7 +383,6 @@ export class Pipeline {
   }
 
   _inferTitle(filename, chapters) {
-    // Remove extension, replace dashes/underscores, title-case
     const base = filename.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ');
     return base.replace(/\b\w/g, c => c.toUpperCase());
   }

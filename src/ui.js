@@ -14,11 +14,16 @@ const PROVIDER_MODELS = {
   anthropic: ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-8'],
 };
 
+// Null-safe getElementById shorthand
+const $  = (id)  => document.getElementById(id);
+const $$ = (sel) => document.querySelectorAll(sel);
+
 export class UI {
   constructor(callbacks) {
-    this.cb = callbacks;
-    this._deleteTarget = null;
-    this._toastTimer   = null;
+    this.cb             = callbacks;
+    this._deleteTarget  = null;
+    this._toastTimer    = null;
+    this._currentBookId = null;
     this._bind();
   }
 
@@ -26,51 +31,53 @@ export class UI {
 
   _bind() {
     // Upload
-    const zone  = document.getElementById('upload-zone');
-    const input = document.getElementById('file-input');
+    const zone  = $('upload-zone');
+    const input = $('file-input');
 
-    zone.addEventListener('click', () => input.click());
-    input.addEventListener('change', () => {
-      if (input.files[0]) this.cb.onFileSelected(input.files[0]);
-      input.value = '';
-    });
-    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-    zone.addEventListener('drop', e => {
-      e.preventDefault();
-      zone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (!file) return;
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        this.showError(`"${file.name}" is not a PDF. Please drop a .pdf file.`);
-        return;
-      }
-      this.cb.onFileSelected(file);
-    });
+    if (zone && input) {
+      zone.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => {
+        if (input.files[0]) this.cb.onFileSelected(input.files[0]);
+        input.value = '';
+      });
+      zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+          this.showError(`"${file.name}" is not a PDF. Please drop a .pdf file.`);
+          return;
+        }
+        this.cb.onFileSelected(file);
+      });
+    }
 
-    // Settings modal — only wire the backdrop that actually exists in HTML
-    document.getElementById('open-settings').addEventListener('click', () => this.openSettings());
-    document.getElementById('close-settings').addEventListener('click', () => this.closeSettings());
-    document.querySelector('#settings-modal .modal-backdrop').addEventListener('click', () => this.closeSettings());
-    document.getElementById('save-settings').addEventListener('click', () => this._saveSettings());
-    document.getElementById('provider-select').addEventListener('change', e => this._onProviderChange(e.target.value));
+    // Settings modal
+    $('open-settings')?.addEventListener('click', () =>
+      this.openSettings().catch(err => this.showError(`Settings error: ${err.message}`))
+    );
+    $('close-settings')?.addEventListener('click', () => this.closeSettings());
+    document.querySelector('#settings-modal .modal-backdrop')?.addEventListener('click', () => this.closeSettings());
+    $('save-settings')?.addEventListener('click', () =>
+      this._saveSettings().catch(err => this.showError(`Failed to save settings: ${err.message}`))
+    );
+    $('provider-select')?.addEventListener('change', e => this._onProviderChange(e.target.value));
 
     // Cancel processing
-    document.getElementById('cancel-processing').addEventListener('click', () => {
-      this.cb.onCancelProcessing();
-    });
+    $('cancel-processing')?.addEventListener('click', () => this.cb.onCancelProcessing());
 
     // Back to library
-    document.getElementById('back-to-library').addEventListener('click', () => this.showLibrary());
+    $('back-to-library')?.addEventListener('click', () => this.showLibrary());
 
     // Delete (in detail view)
-    document.getElementById('delete-book').addEventListener('click', () => {
-      this.openDeleteModal(this._currentBookId);
-    });
-    document.querySelector('#delete-modal .modal-backdrop').addEventListener('click', () => this.closeDeleteModal());
-    document.getElementById('close-delete').addEventListener('click', () => this.closeDeleteModal());
-    document.getElementById('cancel-delete').addEventListener('click', () => this.closeDeleteModal());
-    document.getElementById('confirm-delete').addEventListener('click', () => {
+    $('delete-book')?.addEventListener('click', () => this.openDeleteModal(this._currentBookId));
+    document.querySelector('#delete-modal .modal-backdrop')?.addEventListener('click', () => this.closeDeleteModal());
+    $('close-delete')?.addEventListener('click',  () => this.closeDeleteModal());
+    $('cancel-delete')?.addEventListener('click', () => this.closeDeleteModal());
+    $('confirm-delete')?.addEventListener('click', () => {
       if (this._deleteTarget) {
         this.cb.onBookDelete(this._deleteTarget);
         this.closeDeleteModal();
@@ -85,37 +92,43 @@ export class UI {
     const apiKey   = await Storage.getSetting('apiKey')   || '';
     const model    = await Storage.getSetting('model')    || '';
 
-    document.getElementById('provider-select').value = provider;
-    document.getElementById('api-key-input').value   = apiKey;
+    const provSel = $('provider-select');
+    const keyIn   = $('api-key-input');
+    if (provSel) provSel.value = provider;
+    if (keyIn)   keyIn.value   = apiKey;
     this._onProviderChange(provider, model);
 
-    document.getElementById('settings-modal').classList.remove('hidden');
+    $('settings-modal')?.classList.remove('hidden');
   }
 
   closeSettings() {
-    document.getElementById('settings-modal').classList.add('hidden');
+    $('settings-modal')?.classList.add('hidden');
   }
 
   _onProviderChange(provider, currentModel = null) {
     const models = PROVIDER_MODELS[provider] || [];
-    const select = document.getElementById('model-select');
-    select.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
-    if (currentModel && models.includes(currentModel)) select.value = currentModel;
+    const select = $('model-select');
+    if (select) {
+      select.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+      if (currentModel && models.includes(currentModel)) select.value = currentModel;
+    }
 
-    const note = document.getElementById('provider-note');
-    const text = PROVIDER_NOTES[provider] || '';
-    note.textContent = text;
-    note.classList.toggle('visible', !!text);
+    const note = $('provider-note');
+    if (note) {
+      const text = PROVIDER_NOTES[provider] || '';
+      note.textContent = text;
+      note.classList.toggle('visible', !!text);
+    }
   }
 
   async _saveSettings() {
-    const provider = document.getElementById('provider-select').value;
-    const apiKey   = document.getElementById('api-key-input').value.trim();
-    const model    = document.getElementById('model-select').value;
+    const provider = $('provider-select')?.value;
+    const apiKey   = $('api-key-input')?.value?.trim() ?? '';
+    const model    = $('model-select')?.value;
 
-    await Storage.saveSetting('provider', provider);
-    await Storage.saveSetting('apiKey',   apiKey);
-    await Storage.saveSetting('model',    model);
+    if (provider) await Storage.saveSetting('provider', provider);
+    await Storage.saveSetting('apiKey', apiKey);
+    if (model)    await Storage.saveSetting('model', model);
 
     this.closeSettings();
     this.showToast('API configuration saved.');
@@ -132,34 +145,41 @@ export class UI {
   // ── Processing UI ──────────────────────────────────────────────────────
 
   showProcessing(filename, pageCount) {
-    document.getElementById('processing-book-title').textContent = filename;
-    document.getElementById('processing-page-count').textContent = pageCount !== '…' ? `${pageCount} pages` : '';
-    document.getElementById('processing-log').innerHTML = '';
+    const title = $('processing-book-title');
+    const pages = $('processing-page-count');
+    const log   = $('processing-log');
+    if (title) title.textContent = filename;
+    if (pages) pages.textContent = pageCount !== '…' ? `${pageCount} pages` : '';
+    if (log)   log.innerHTML     = '';
+
     this.setProgress(0, 'Reading file…', 'extract');
-    document.getElementById('upload-section').classList.add('hidden');
-    document.getElementById('processing-section').classList.remove('hidden');
+    $('upload-section')?.classList.add('hidden');
+    $('processing-section')?.classList.remove('hidden');
   }
 
   hideProcessing() {
-    document.getElementById('processing-section').classList.add('hidden');
-    document.getElementById('upload-section').classList.remove('hidden');
+    $('processing-section')?.classList.add('hidden');
+    $('upload-section')?.classList.remove('hidden');
   }
 
   setProgress(pct, status, phase) {
-    document.getElementById('progress-bar').style.width = `${pct}%`;
-    document.getElementById('progress-status').textContent = status;
+    const bar  = $('progress-bar');
+    const stat = $('progress-status');
+    if (bar)  bar.style.width  = `${pct}%`;
+    if (stat) stat.textContent = status;
     this._updatePhaseTrack(phase);
   }
 
   appendLog(msg) {
-    const log = document.getElementById('processing-log');
-    // Prune log to last 80 entries to prevent unbounded DOM growth
+    const log = $('processing-log');
+    if (!log) return;
+
     while (log.children.length >= 80) log.removeChild(log.firstChild);
 
-    const entry  = document.createElement('div');
-    const isErr  = msg.includes('⚠') || msg.toLowerCase().includes('failed');
-    const isOk   = msg.includes('✓');
-    entry.className = `log-entry${isErr ? ' log-err' : isOk ? ' log-ok' : ''}`;
+    const entry = document.createElement('div');
+    const isErr = msg.includes('⚠') || msg.toLowerCase().includes('failed');
+    const isOk  = msg.includes('✓');
+    entry.className   = `log-entry${isErr ? ' log-err' : isOk ? ' log-ok' : ''}`;
     entry.textContent = msg;
     log.appendChild(entry);
     log.scrollTop = log.scrollHeight;
@@ -169,7 +189,7 @@ export class UI {
     const order = ['extract', 'chunk', 'summarize', 'knowledge', 'complete'];
     const idx   = order.indexOf(activePhase);
 
-    document.querySelectorAll('.phase-step').forEach((el, i) => {
+    $$('.phase-step').forEach((el, i) => {
       el.classList.toggle('active', i === idx);
       el.classList.toggle('done',   i < idx);
     });
@@ -178,14 +198,24 @@ export class UI {
   // ── Library ────────────────────────────────────────────────────────────
 
   showLibrary() {
-    document.getElementById('book-detail').classList.add('hidden');
-    document.getElementById('app').style.display = 'flex';
+    $('book-detail')?.classList.add('hidden');
+    const app = $('app');
+    if (app) app.style.display = 'flex';
   }
 
   async renderLibrary() {
-    const books = await Storage.getAllBooks();
-    const grid  = document.getElementById('book-grid');
-    const count = document.getElementById('book-count');
+    const grid  = $('book-grid');
+    const count = $('book-count');
+    if (!grid || !count) return;
+
+    let books;
+    try {
+      books = await Storage.getAllBooks();
+    } catch (err) {
+      console.error('[ui] renderLibrary: getAllBooks failed:', err);
+      this.showError('Could not load your archive. Please reload the page.');
+      return;
+    }
 
     count.textContent = `${books.length} book${books.length !== 1 ? 's' : ''}`;
 
@@ -193,12 +223,13 @@ export class UI {
     grid.querySelectorAll('.book-card').forEach(el => el.remove());
 
     // #empty-library may have been detached by a prior innerHTML='' call; re-anchor it
-    let empty = document.getElementById('empty-library');
+    let empty = $('empty-library');
     if (!empty) {
-      empty = document.createElement('div');
-      empty.id = 'empty-library';
+      empty           = document.createElement('div');
+      empty.id        = 'empty-library';
       empty.className = 'empty-library';
-      empty.innerHTML = '<p>No books processed yet.</p><p class="muted">Upload a PDF above to begin building your knowledge archive.</p>';
+      empty.innerHTML = '<p>No books processed yet.</p>'
+        + '<p class="muted">Upload a PDF above to begin building your knowledge archive.</p>';
       grid.appendChild(empty);
     } else if (!grid.contains(empty)) {
       grid.appendChild(empty);
@@ -211,25 +242,40 @@ export class UI {
 
     empty.classList.add('hidden');
 
-    books.sort((a, b) => b.createdAt - a.createdAt).forEach(book => {
-      const card = this._makeBookCard(book);
-      grid.appendChild(card);
+    books.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).forEach(book => {
+      try {
+        grid.appendChild(this._makeBookCard(book));
+      } catch (err) {
+        console.error('[ui] _makeBookCard failed for book:', book?.id, err);
+      }
     });
   }
 
   _makeBookCard(book) {
     const card = document.createElement('div');
-    card.className = 'book-card';
-    card.dataset.bookId = book.id;
+    card.className      = 'book-card';
+    card.dataset.bookId = book.id || '';
 
-    const statusClass = { complete: 'status-complete', processing: 'status-processing', error: 'status-error' }[book.status] || 'status-processing';
-    const statusLabel = { complete: '✓ Complete', processing: '⟳ Processing', error: '✕ Error' }[book.status] || book.status;
-    const date        = new Date(book.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const statusClass = {
+      complete:   'status-complete',
+      processing: 'status-processing',
+      error:      'status-error',
+    }[book.status] || 'status-processing';
+
+    const statusLabel = {
+      complete:   '✓ Complete',
+      processing: '⟳ Processing',
+      error:      '✕ Error',
+    }[book.status] || (book.status || 'Unknown');
+
+    const date = book.createdAt
+      ? new Date(book.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      : '—';
 
     card.innerHTML = `
-      <div class="book-card-title">${this._esc(book.title)}</div>
+      <div class="book-card-title">${this._esc(book.title || 'Untitled')}</div>
       <div class="book-card-meta">
-        <span>${book.pageCount} pages</span>
+        <span>${book.pageCount ?? '?'} pages</span>
         <span class="sep">·</span>
         <span>${book.chapterCount ?? '?'} chapters</span>
         <span class="sep">·</span>
@@ -242,12 +288,11 @@ export class UI {
     if (book.status === 'complete') {
       card.addEventListener('click', () => this.cb.onBookOpen(book.id));
     } else {
-      // Error and stuck-processing books show a delete button directly on the card
-      const delBtn = document.createElement('button');
+      const delBtn       = document.createElement('button');
       delBtn.className   = 'btn-ghost btn-sm btn-danger-ghost';
       delBtn.textContent = 'Remove';
       delBtn.style.marginTop = '0.5rem';
-      delBtn.addEventListener('click', (e) => {
+      delBtn.addEventListener('click', e => {
         e.stopPropagation();
         this.openDeleteModal(book.id);
       });
@@ -268,47 +313,59 @@ export class UI {
       Storage.getKnowledge(bookId),
     ]);
 
-    if (!book) return;
-
-    const date = new Date(book.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
-
-    document.getElementById('detail-title').textContent         = book.title;
-    document.getElementById('detail-pages').textContent         = `${book.pageCount} pages`;
-    document.getElementById('detail-chapters').textContent      = `${chapters.length} chapters`;
-    document.getElementById('detail-date').textContent          = date;
-    document.getElementById('detail-book-summary').textContent  = book.summary || 'No summary available.';
-
-    // Chapters
-    const sortedChapters = [...chapters].sort((a, b) => a.index - b.index);
-    const chList = document.getElementById('chapter-list');
-    chList.innerHTML = '';
-    sortedChapters.forEach(ch => chList.appendChild(this._makeChapterItem(ch)));
-
-    // Knowledge
-    if (knowledge) {
-      this._renderPills('detail-concepts',   knowledge.concepts        || []);
-      this._renderItems('detail-principles', knowledge.principles      || []);
-      this._renderItems('detail-actions',    knowledge.actionableIdeas || []);
-      this._renderVocab(knowledge.vocabulary || []);
-      this._renderQuotes(knowledge.quotes    || []);
+    if (!book) {
+      this.showError('Book not found in archive.');
+      return;
     }
 
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('book-detail').classList.remove('hidden');
+    const date = book.createdAt
+      ? new Date(book.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+      : '—';
+
+    this._setText('detail-title',        book.title   || 'Untitled');
+    this._setText('detail-pages',        `${book.pageCount ?? '?'} pages`);
+    this._setText('detail-chapters',     `${(chapters || []).length} chapters`);
+    this._setText('detail-date',         date);
+    this._setText('detail-book-summary', book.summary || 'No summary available.');
+
+    // Chapters
+    const chList = $('chapter-list');
+    if (chList) {
+      chList.innerHTML = '';
+      const sorted = [...(chapters || [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+      sorted.forEach(ch => chList.appendChild(this._makeChapterItem(ch)));
+    }
+
+    // Knowledge
+    const k = knowledge || {};
+    this._renderPills('detail-concepts',   k.concepts        || []);
+    this._renderItems('detail-principles', k.principles      || []);
+    this._renderItems('detail-actions',    k.actionableIdeas || []);
+    this._renderVocab(k.vocabulary  || []);
+    this._renderQuotes(k.quotes     || []);
+
+    const app = $('app');
+    if (app) app.style.display = 'none';
+    $('book-detail')?.classList.remove('hidden');
     window.scrollTo(0, 0);
+  }
+
+  _setText(id, text) {
+    const el = $(id);
+    if (el) el.textContent = text;
   }
 
   _makeChapterItem(ch) {
     const div = document.createElement('div');
     div.className = 'chapter-item';
 
-    const pages = ch.pageStart === ch.pageEnd
-      ? `p. ${ch.pageStart}`
-      : `pp. ${ch.pageStart}–${ch.pageEnd}`;
+    const ps    = ch.pageStart ?? '?';
+    const pe    = ch.pageEnd   ?? '?';
+    const pages = ps === pe ? `p. ${ps}` : `pp. ${ps}–${pe}`;
 
     div.innerHTML = `
       <div class="chapter-item-header">
-        <span class="chapter-item-title">${this._esc(ch.title)}</span>
+        <span class="chapter-item-title">${this._esc(ch.title || 'Untitled')}</span>
         <span class="chapter-item-pages">${pages}</span>
         ${ch.summary ? '<span class="chapter-item-toggle">▾</span>' : ''}
       </div>
@@ -316,7 +373,7 @@ export class UI {
     `;
 
     if (ch.summary) {
-      div.querySelector('.chapter-item-header').addEventListener('click', () => {
+      div.querySelector('.chapter-item-header')?.addEventListener('click', () => {
         div.classList.toggle('open');
       });
     }
@@ -324,43 +381,47 @@ export class UI {
     return div;
   }
 
-  // Split into two named methods — removes dead branch
   _renderPills(id, items) {
-    const el = document.getElementById(id);
+    const el = $(id);
+    if (!el) return;
     el.innerHTML = '';
-    items.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item;
-      el.appendChild(li);
-    });
     if (items.length === 0) {
       const li = document.createElement('li');
       li.textContent = 'None extracted.';
       li.style.opacity = '0.4';
       el.appendChild(li);
+      return;
     }
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = String(item ?? '');
+      el.appendChild(li);
+    });
   }
 
   _renderItems(id, items) {
-    const el = document.getElementById(id);
+    const el = $(id);
+    if (!el) return;
     el.innerHTML = '';
-    items.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item;
-      el.appendChild(li);
-    });
     if (items.length === 0) {
       const li = document.createElement('li');
       li.textContent = 'None extracted.';
       li.style.opacity = '0.4';
       el.appendChild(li);
+      return;
     }
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = String(item ?? '');
+      el.appendChild(li);
+    });
   }
 
   _renderVocab(vocab) {
-    const el = document.getElementById('detail-vocab');
+    const el = $('detail-vocab');
+    if (!el) return;
     el.innerHTML = '';
-    if (vocab.length === 0) {
+    if (!vocab.length) {
       const li = document.createElement('li');
       li.textContent = 'None extracted.';
       li.style.opacity = '0.4';
@@ -369,28 +430,27 @@ export class UI {
     }
     vocab.forEach(v => {
       const li = document.createElement('li');
-      li.innerHTML = `<div class="vocab-item-term">${this._esc(v.term || v)}</div><div class="vocab-item-def">${this._esc(v.definition || '')}</div>`;
+      li.innerHTML = `<div class="vocab-item-term">${this._esc(v.term || String(v))}</div>`
+        + `<div class="vocab-item-def">${this._esc(v.definition || '')}</div>`;
       el.appendChild(li);
     });
   }
 
   _renderQuotes(quotes) {
-    const el = document.getElementById('detail-quotes');
+    const el = $('detail-quotes');
+    if (!el) return;
     el.innerHTML = '';
-    if (quotes.length === 0) {
+    if (!quotes.length) {
       el.innerHTML = '<p class="muted" style="font-size:0.85rem">No quotes extracted.</p>';
       return;
     }
     quotes.forEach(q => {
-      const block = document.createElement('div');
+      const block     = document.createElement('div');
       block.className = 'quote-block';
-      // q may be a string or { text, context }
-      const text    = typeof q === 'string' ? q : (q.text || '');
-      const context = typeof q === 'string' ? '' : (q.context || '');
-      block.innerHTML = `
-        <p class="quote-text">"${this._esc(text)}"</p>
-        ${context ? `<p class="quote-context">${this._esc(context)}</p>` : ''}
-      `;
+      const text      = typeof q === 'string' ? q : (q.text    || '');
+      const context   = typeof q === 'string' ? '' : (q.context || '');
+      block.innerHTML = `<p class="quote-text">"${this._esc(text)}"</p>`
+        + (context ? `<p class="quote-context">${this._esc(context)}</p>` : '');
       el.appendChild(block);
     });
   }
@@ -399,37 +459,33 @@ export class UI {
 
   openDeleteModal(bookId) {
     this._deleteTarget = bookId;
-    document.getElementById('delete-modal').classList.remove('hidden');
+    $('delete-modal')?.classList.remove('hidden');
   }
 
   closeDeleteModal() {
     this._deleteTarget = null;
-    document.getElementById('delete-modal').classList.add('hidden');
+    $('delete-modal')?.classList.add('hidden');
   }
 
-  // ── Toast (replaces alert) ─────────────────────────────────────────────
+  // ── Toast ──────────────────────────────────────────────────────────────
 
-  showError(msg) {
-    this._showToastInternal(msg, 'error');
-  }
-
-  showToast(msg) {
-    this._showToastInternal(msg, 'info');
-  }
+  showError(msg) { this._showToastInternal(msg, 'error'); }
+  showToast(msg) { this._showToastInternal(msg, 'info');  }
 
   _showToastInternal(msg, type) {
-    let toast = document.getElementById('app-toast');
+    let toast = $('app-toast');
     if (!toast) {
-      toast = document.createElement('div');
+      toast    = document.createElement('div');
       toast.id = 'app-toast';
       document.body.appendChild(toast);
     }
-    toast.textContent  = msg;
-    toast.className    = `app-toast app-toast--${type} app-toast--visible`;
+    toast.textContent = msg;
+    toast.className   = `app-toast app-toast--${type} app-toast--visible`;
     clearTimeout(this._toastTimer);
-    this._toastTimer = setTimeout(() => {
-      toast.classList.remove('app-toast--visible');
-    }, type === 'error' ? 6000 : 3000);
+    this._toastTimer  = setTimeout(
+      () => toast.classList.remove('app-toast--visible'),
+      type === 'error' ? 6000 : 3000
+    );
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────

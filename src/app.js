@@ -14,6 +14,7 @@ import './providers/anthropic.js';
 // ── State ──────────────────────────────────────────────────────────────────
 
 let activePipeline = null;
+let activeUploader = null; // tracked so cancel works during extraction too
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -22,16 +23,22 @@ async function init() {
 
   const ui = new UI({
     onFileSelected:     (file)   => handleFile(ui, file).catch(err => {
-      // Last-resort catch — surfaces any error that escapes handleFile's own handler
       console.error('[app] Unhandled error in handleFile:', err);
       ui.hideProcessing();
       ui.showError(`Unexpected error: ${err.message}`);
       activePipeline = null;
+      activeUploader = null;
     }),
     onSettingsSaved:    ()       => {},
-    onBookOpen:         (bookId) => ui.openBook(bookId),
-    onBookDelete:       (bookId) => handleDelete(ui, bookId),
-    onCancelProcessing: ()       => handleCancel(ui),
+    onBookOpen:         (bookId) => ui.openBook(bookId).catch(err => {
+      console.error('[app] openBook failed:', err);
+      ui.showError(`Could not open book: ${err.message}`);
+    }),
+    onBookDelete:       (bookId) => handleDelete(ui, bookId).catch(err => {
+      console.error('[app] handleDelete failed:', err);
+      ui.showError(`Could not delete book: ${err.message}`);
+    }),
+    onCancelProcessing: ()       => handleCancel(),
   });
 
   await ui.renderLibrary();
@@ -40,13 +47,11 @@ async function init() {
 // ── Handlers ───────────────────────────────────────────────────────────────
 
 async function handleFile(ui, file) {
-  // Block concurrent uploads
-  if (activePipeline) {
+  if (activePipeline || activeUploader) {
     ui.showError('A book is already being processed. Please wait or cancel it first.');
     return;
   }
 
-  // Validate provider config
   const cfg = await ui.getProviderConfig();
   console.log('[app] Provider config:', { provider: cfg.provider, hasKey: !!cfg.apiKey, model: cfg.model });
 
@@ -56,16 +61,16 @@ async function handleFile(ui, file) {
     return;
   }
 
-  const bookId = `book-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const bookId    = `book-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const createdAt = Date.now();
 
-  // ── Phase 1: PDF Extraction ───────────────────────────────────────────────
+  // ── Phase 1: PDF Extraction ────────────────────────────────────────────
   ui.showProcessing(file.name, '…');
   ui.appendLog(`Loading: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
 
-  let uploader;
   let extractedData;
   try {
-    uploader = new PDFUploader(({ status, pct, done, total }) => {
+    const uploader = new PDFUploader(({ status, pct, done, total }) => {
       const p = pct ?? Math.round((done / total) * 20);
       ui.setProgress(p, status, 'extract');
       if (typeof done === 'number' && typeof total === 'number' && total > 1) {
@@ -74,31 +79,45 @@ async function handleFile(ui, file) {
         }
       }
     });
-    extractedData = await uploader.extract(file);
-    console.log('[app] Extraction complete:', extractedData.pageCount, 'pages,', extractedData.pages.length, 'page objects');
-    document.getElementById('processing-page-count').textContent = `${extractedData.pageCount} pages`;
+    activeUploader = uploader;
+    extractedData  = await uploader.extract(file);
+    activeUploader = null;
+
+    console.log('[app] Extraction complete:', extractedData.pageCount, 'pages');
+    const pageCountEl = document.getElementById('processing-page-count');
+    if (pageCountEl) pageCountEl.textContent = `${extractedData.pageCount} pages`;
     ui.appendLog(`✓ ${extractedData.pageCount} pages extracted`);
   } catch (err) {
+    activeUploader = null;
+    if (err.message === 'Processing cancelled.') {
+      console.log('[app] Extraction cancelled by user');
+      ui.hideProcessing();
+      return;
+    }
     console.error('[app] Extraction failed:', err);
     ui.hideProcessing();
     ui.showError(`PDF extraction failed: ${err.message}`);
     return;
   }
 
-  // ── Bridge: save stub + build provider ────────────────────────────────────
-  // This section was previously unguarded — any throw here was a silent freeze.
+  // ── Bridge: save stub + build provider ────────────────────────────────
   let provider;
   try {
+    const titleCase = file.name
+      .replace(/\.pdf$/i, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+
     console.log('[app] Saving book stub to IndexedDB…');
     await Storage.saveBook({
       id:           bookId,
-      title:        file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' '),
+      title:        titleCase,
       filename:     file.name,
       pageCount:    extractedData.pageCount,
       chapterCount: null,
       summary:      null,
       status:       'processing',
-      createdAt:    Date.now(),
+      createdAt,
     });
     console.log('[app] Book stub saved. Rendering library…');
     await ui.renderLibrary();
@@ -110,12 +129,11 @@ async function handleFile(ui, file) {
     console.error('[app] Bridge phase failed:', err);
     ui.hideProcessing();
     ui.showError(`Setup failed: ${err.message}`);
-    // Clean up partial stub
     await Storage.deleteBookAll(bookId).catch(() => {});
     return;
   }
 
-  // ── Phases 2–6: AI Pipeline ───────────────────────────────────────────────
+  // ── Phases 2–6: AI Pipeline ───────────────────────────────────────────
   activePipeline = new Pipeline(provider, ({ pct, status, phase, log }) => {
     if (log)    ui.appendLog(log);
     if (status) ui.setProgress(pct ?? 0, status, phase ?? 'summarize');
@@ -133,18 +151,25 @@ async function handleFile(ui, file) {
       await Storage.deleteBookAll(bookId).catch(() => {});
       ui.hideProcessing();
       await ui.renderLibrary();
-      return;
-    }
+    } else {
+      console.error('[app] Pipeline failed:', err);
 
-    console.error('[app] Pipeline failed:', err);
-    const book = await Storage.getBook(bookId).catch(() => null);
-    if (book) {
-      book.status = 'error';
-      await Storage.saveBook(book).catch(() => {});
+      // Try to persist error status so the card shows and can be deleted
+      const book = await Storage.getBook(bookId).catch(() => null);
+      if (book) {
+        book.status = 'error';
+        await Storage.saveBook(book).catch(() => {});
+      }
+
+      ui.hideProcessing();
+
+      const msg = err.isRateLimit
+        ? `API quota or rate limit reached. Check your ${cfg.provider} plan and try again later.`
+        : `Processing failed: ${err.message}`;
+      ui.showError(msg);
+
+      await ui.renderLibrary();
     }
-    ui.hideProcessing();
-    ui.showError(`Processing failed: ${err.message}`);
-    await ui.renderLibrary();
   } finally {
     activePipeline = null;
   }
@@ -156,8 +181,9 @@ async function handleDelete(ui, bookId) {
   await ui.renderLibrary();
 }
 
-function handleCancel(ui) {
-  if (activePipeline) activePipeline.cancel();
+function handleCancel() {
+  if (activeUploader)  activeUploader.cancel();
+  if (activePipeline)  activePipeline.cancel();
 }
 
 // ── Start ──────────────────────────────────────────────────────────────────
