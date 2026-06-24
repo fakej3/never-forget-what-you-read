@@ -335,9 +335,28 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   padding: 0.2rem 0.55rem;
   border-radius: 20px;
 }
-.status-complete { background: var(--success-dim); color: var(--success); }
-.status-processing { background: var(--accent-dim); color: var(--accent-hover); }
-.status-error { background: var(--error-dim); color: var(--error); }
+.status-complete   { background: var(--success-dim); color: var(--success); }
+.status-processing { background: var(--accent-dim);  color: var(--accent-hover); }
+.status-extracted  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.status-error      { background: var(--error-dim);   color: var(--error); }
+
+.btn-resume { color: var(--accent-hover); border-color: rgba(99,102,241,0.35); }
+.btn-resume:hover { background: var(--accent-dim); color: var(--accent-hover); }
+
+.metrics-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+}
+.metric-item { display: flex; align-items: baseline; gap: 0.3rem; }
+.metric-value { font-weight: 600; color: var(--accent-hover); font-variant-numeric: tabular-nums; }
+.metric-label { color: var(--text-faint); }
+.metric-sep   { color: var(--text-faint); }
 
 .book-card-summary {
   font-size: 0.8rem;
