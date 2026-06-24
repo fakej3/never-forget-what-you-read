@@ -69,8 +69,50 @@ export class PDFUploader {
       await new Promise(r => setTimeout(r, 0));
     }
 
+    const outline = await this._extractOutline(pdf);
     pdf.destroy();
-    return { pageCount, pages };
+    return { pageCount, pages, outline };
+  }
+
+  /** Extract and resolve the PDF outline (bookmarks / TOC) to page numbers. */
+  async _extractOutline(pdf) {
+    try {
+      const raw = await pdf.getOutline();
+      if (!raw || raw.length === 0) return [];
+
+      const entries = [];
+      await this._flattenOutline(pdf, raw, entries, 0);
+      entries.sort((a, b) => a.pageNum - b.pageNum);
+      return entries;
+    } catch (e) {
+      console.warn('[uploader] Outline extraction failed:', e.message);
+      return [];
+    }
+  }
+
+  async _flattenOutline(pdf, items, out, depth) {
+    for (const item of items) {
+      const pageNum = await this._resolveDestPage(pdf, item.dest);
+      if (pageNum !== null) {
+        out.push({ title: (item.title || '').trim() || 'Untitled', pageNum });
+      }
+      if (item.items && item.items.length > 0 && depth < 2) {
+        await this._flattenOutline(pdf, item.items, out, depth + 1);
+      }
+    }
+  }
+
+  async _resolveDestPage(pdf, dest) {
+    try {
+      if (!dest) return null;
+      let resolved = dest;
+      if (typeof dest === 'string') resolved = await pdf.getDestination(dest);
+      if (!Array.isArray(resolved) || !resolved[0]) return null;
+      const pageIndex = await pdf.getPageIndex(resolved[0]);
+      return pageIndex + 1; // convert 0-based to 1-based
+    } catch {
+      return null;
+    }
   }
 
   async _extractPage(pdf, pageNum) {

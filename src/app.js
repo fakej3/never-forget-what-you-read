@@ -149,8 +149,8 @@ async function handleFile(ui, file) {
   activePipeline = new Pipeline(provider, makePipelineCallback(ui));
 
   try {
-    console.log('[app] Starting pipeline for bookId:', bookId);
-    await activePipeline.run(bookId, file.name, extractedData.pages, extractedData.pageCount);
+    console.log('[app] Starting pipeline for bookId:', bookId, '| outline entries:', extractedData.outline?.length ?? 0);
+    await activePipeline.run(bookId, file.name, extractedData.pages, extractedData.pageCount, extractedData.outline || []);
     console.log('[app] Pipeline complete');
     ui.hideProcessing();
     await ui.renderLibrary();
