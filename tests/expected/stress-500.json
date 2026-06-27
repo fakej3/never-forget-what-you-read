@@ -1,15 +1,15 @@
 {
   "bookSlug": "stress-500",
   "bookTitle": "Stress Test 500 Pages",
-  "expectedChapterCount": 5,
+  "expectedChapterCount": 10,
   "expectedChapterTitles": [],
-  "detectionStrategy": "patterns",
+  "detectionStrategy": "numbered-sequence",
   "headingFormat": "standard",
   "expectedPages": 500,
-  "expectedConceptCount": 15,
-  "expectedPrincipleCount": 10,
-  "expectedActionableCount": 10,
-  "expectedVocabularyCount": 10,
-  "expectedQuoteCount": 5,
-  "expectedAICalls": 6
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 11
 }

@@ -214,19 +214,19 @@ export const STRESS_BOOKS = [
     slug:        'stress-250',
     title:       'Stress Test 250 Pages',
     totalPages:  250,
-    chapterEvery: 25,             // chapter heading every N pages
+    chapterEvery: 25,             // chapter heading every N pages → 10 chapters
     headingFormat: 'standard',
-    detectionStrategy: 'patterns',
-    description: '250 pages, chapters every 25 pages',
+    detectionStrategy: 'numbered-sequence',
+    description: '250 pages, chapters every 25 pages (10 chapters)',
   },
   {
     slug:        'stress-500',
     title:       'Stress Test 500 Pages',
     totalPages:  500,
-    chapterEvery: 50,
+    chapterEvery: 50,             // 10 chapters
     headingFormat: 'standard',
-    detectionStrategy: 'patterns',
-    description: '500 pages, chapters every 50 pages',
+    detectionStrategy: 'numbered-sequence',
+    description: '500 pages, chapters every 50 pages (10 chapters)',
   },
   {
     slug:        'stress-1000',

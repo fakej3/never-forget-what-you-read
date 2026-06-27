@@ -121,8 +121,8 @@ function addBulletListPage(doc, bodyFont, boldFont, seed) {
   let y = 700;
   const lineSize = 11;
 
-  // Chapter heading first
-  page.drawText(`Chapter ${seed + 1}: Lists and Structures`, {
+  // Section label — deliberately NOT "Chapter N:" to avoid false chapter detection
+  page.drawText(`Exercise ${seed + 1}: Lists and Structures`, {
     x: MARGIN, y, font: boldFont, size: 16, color: rgb(0,0,0),
   });
   y -= 30;
@@ -157,7 +157,8 @@ function addQuotePage(doc, bodyFont, boldFont, seed) {
   let y = 680;
   const lineSize = 11;
 
-  page.drawText(`Chapter ${seed + 1}: Wisdom and Quotations`, {
+  // Section label — deliberately NOT "Chapter N:" to avoid false chapter detection
+  page.drawText(`Quotation ${seed + 1}: Wisdom and Quotations`, {
     x: MARGIN, y, font: boldFont, size: 16, color: rgb(0,0,0),
   });
   y -= 30;
@@ -340,7 +341,10 @@ async function generateStressBook(bookDef) {
 // ── Ground truth generator ───────────────────────────────────────────────────
 
 function makeGroundTruth(bookDef) {
-  const chapterCount = bookDef.chapterCount || bookDef.expectedSectionCount || 5;
+  // For stress books with chapterEvery, count = totalPages / chapterEvery
+  const chapterCount = bookDef.chapterCount
+    || bookDef.expectedSectionCount
+    || (bookDef.chapterEvery ? Math.floor(bookDef.totalPages / bookDef.chapterEvery) : 5);
   const counts = computeExpectedCounts(chapterCount);
   const titles = bookDef.chapterTitles || makeChapterTitles(bookDef);
 
