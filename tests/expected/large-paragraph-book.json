@@ -1,0 +1,20 @@
+{
+  "bookSlug": "large-paragraph-book",
+  "bookTitle": "The Large Paragraph Book",
+  "expectedChapterCount": 4,
+  "expectedChapterTitles": [
+    "Chapter 1: The Foundation",
+    "Chapter 2: Building Blocks",
+    "Chapter 3: Advanced Concepts",
+    "Chapter 4: Applied Methods"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 20,
+  "expectedConceptCount": 12,
+  "expectedPrincipleCount": 8,
+  "expectedActionableCount": 8,
+  "expectedVocabularyCount": 8,
+  "expectedQuoteCount": 4,
+  "expectedAICalls": 5
+}

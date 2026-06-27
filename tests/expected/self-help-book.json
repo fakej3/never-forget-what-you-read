@@ -1,0 +1,29 @@
+{
+  "bookSlug": "self-help-book",
+  "bookTitle": "Think And Grow Rich",
+  "expectedChapterCount": 13,
+  "expectedChapterTitles": [
+    "CHAPTER ONE — THOUGHTS ARE THINGS",
+    "CHAPTER TWO — DESIRE",
+    "CHAPTER THREE — FAITH",
+    "CHAPTER FOUR — AUTO-SUGGESTION",
+    "CHAPTER FIVE — SPECIALIZED KNOWLEDGE",
+    "CHAPTER SIX — IMAGINATION",
+    "CHAPTER SEVEN — ORGANIZED PLANNING",
+    "CHAPTER EIGHT — DECISION",
+    "CHAPTER NINE — PERSISTENCE",
+    "CHAPTER TEN — POWER OF THE MASTERMIND",
+    "CHAPTER ELEVEN — THE MYSTERY OF SEX TRANSMUTATION",
+    "CHAPTER TWELVE — THE SUBCONSCIOUS MIND",
+    "CHAPTER THIRTEEN — THE BRAIN"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "self-help",
+  "expectedPages": 39,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 14
+}

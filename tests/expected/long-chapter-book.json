@@ -1,0 +1,19 @@
+{
+  "bookSlug": "long-chapter-book",
+  "bookTitle": "The Long Chapter Book",
+  "expectedChapterCount": 3,
+  "expectedChapterTitles": [
+    "Chapter 1: The Foundation",
+    "Chapter 2: Building Blocks",
+    "Chapter 3: Advanced Concepts"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 60,
+  "expectedConceptCount": 9,
+  "expectedPrincipleCount": 6,
+  "expectedActionableCount": 6,
+  "expectedVocabularyCount": 6,
+  "expectedQuoteCount": 3,
+  "expectedAICalls": 4
+}

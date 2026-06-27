@@ -1,0 +1,19 @@
+{
+  "name": "never-forget-qa",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "QA test library for never-forget-what-you-read",
+  "scripts": {
+    "generate": "node generator.js",
+    "test:unit": "node --test unit/chunker.test.js unit/compressor.test.js",
+    "test:e2e": "npx playwright test",
+    "qa": "node run-qa.js"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "serve": "^14.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

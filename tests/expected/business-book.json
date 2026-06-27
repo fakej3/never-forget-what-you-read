@@ -1,0 +1,24 @@
+{
+  "bookSlug": "business-book",
+  "bookTitle": "The Business Book",
+  "expectedChapterCount": 8,
+  "expectedChapterTitles": [
+    "Part 1: Strategy",
+    "Part 2: Leadership",
+    "Part 3: Operations",
+    "Part 4: Finance",
+    "Part 5: Marketing",
+    "Part 6: Innovation",
+    "Part 7: Culture",
+    "Part 8: Growth"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "part",
+  "expectedPages": 32,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 16,
+  "expectedQuoteCount": 8,
+  "expectedAICalls": 9
+}

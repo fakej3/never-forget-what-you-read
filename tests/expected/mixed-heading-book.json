@@ -1,0 +1,22 @@
+{
+  "bookSlug": "mixed-heading-book",
+  "bookTitle": "The Mixed Heading Book",
+  "expectedChapterCount": 6,
+  "expectedChapterTitles": [
+    "CHAPTER ONE",
+    "Chapter 2: Second Movement",
+    "III. The Third Way",
+    "Part Four: Transformation",
+    "LESSON FIVE",
+    "Chapter 6: Finale"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "mixed",
+  "expectedPages": 18,
+  "expectedConceptCount": 18,
+  "expectedPrincipleCount": 12,
+  "expectedActionableCount": 12,
+  "expectedVocabularyCount": 12,
+  "expectedQuoteCount": 6,
+  "expectedAICalls": 7
+}

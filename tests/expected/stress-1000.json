@@ -1,0 +1,16 @@
+{
+  "bookSlug": "stress-1000",
+  "bookTitle": "Stress Test 1000 Pages",
+  "expectedChapterCount": 20,
+  "expectedChapterTitles": [],
+  "detectionStrategy": "n-page",
+  "headingFormat": "none",
+  "expectedPages": 1000,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 21,
+  "expectedSectionCount": 20
+}

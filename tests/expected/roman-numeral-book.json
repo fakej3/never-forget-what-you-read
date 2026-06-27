@@ -1,0 +1,31 @@
+{
+  "bookSlug": "roman-numeral-book",
+  "bookTitle": "The Roman Numeral Book",
+  "expectedChapterCount": 15,
+  "expectedChapterTitles": [
+    "I. Chapter Title 1",
+    "II. Chapter Title 2",
+    "III. Chapter Title 3",
+    "IV. Chapter Title 4",
+    "V. Chapter Title 5",
+    "VI. Chapter Title 6",
+    "VII. Chapter Title 7",
+    "VIII. Chapter Title 8",
+    "IX. Chapter Title 9",
+    "X. Chapter Title 10",
+    "XI. Chapter Title 11",
+    "XII. Chapter Title 12",
+    "XIII. Chapter Title 13",
+    "XIV. Chapter Title 14",
+    "XV. Chapter Title 15"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "roman",
+  "expectedPages": 30,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 16
+}

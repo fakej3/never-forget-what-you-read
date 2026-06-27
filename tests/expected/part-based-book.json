@@ -1,0 +1,20 @@
+{
+  "bookSlug": "part-based-book",
+  "bookTitle": "The Part-Based Book",
+  "expectedChapterCount": 4,
+  "expectedChapterTitles": [
+    "Part One: The Beginning",
+    "Part Two: The Development",
+    "Part Three: The Climax",
+    "Part Four: The Resolution"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "part",
+  "expectedPages": 16,
+  "expectedConceptCount": 12,
+  "expectedPrincipleCount": 8,
+  "expectedActionableCount": 8,
+  "expectedVocabularyCount": 8,
+  "expectedQuoteCount": 4,
+  "expectedAICalls": 5
+}

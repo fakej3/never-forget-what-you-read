@@ -1,0 +1,22 @@
+{
+  "bookSlug": "quote-heavy-book",
+  "bookTitle": "The Quote Heavy Book",
+  "expectedChapterCount": 6,
+  "expectedChapterTitles": [
+    "Chapter 1: The Foundation",
+    "Chapter 2: Building Blocks",
+    "Chapter 3: Advanced Concepts",
+    "Chapter 4: Applied Methods",
+    "Chapter 5: Critical Analysis",
+    "Chapter 6: Synthesis"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 18,
+  "expectedConceptCount": 18,
+  "expectedPrincipleCount": 12,
+  "expectedActionableCount": 12,
+  "expectedVocabularyCount": 12,
+  "expectedQuoteCount": 6,
+  "expectedAICalls": 7
+}

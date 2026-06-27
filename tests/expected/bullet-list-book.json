@@ -1,0 +1,21 @@
+{
+  "bookSlug": "bullet-list-book",
+  "bookTitle": "The Bullet List Book",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "Chapter 1: The Foundation",
+    "Chapter 2: Building Blocks",
+    "Chapter 3: Advanced Concepts",
+    "Chapter 4: Applied Methods",
+    "Chapter 5: Critical Analysis"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 15,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

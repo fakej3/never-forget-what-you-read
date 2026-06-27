@@ -1,0 +1,9 @@
+{
+  "name": "never-forget-what-you-read",
+  "type": "module",
+  "scripts": {
+    "qa": "cd tests && npm install && node ../tests/run-qa.js",
+    "test:unit": "node --test tests/unit/chunker.test.js tests/unit/compressor.test.js",
+    "test:e2e": "cd tests && npx playwright test"
+  }
+}

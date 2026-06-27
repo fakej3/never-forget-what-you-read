@@ -1,0 +1,24 @@
+{
+  "bookSlug": "vocabulary-heavy-book",
+  "bookTitle": "The Vocabulary Heavy Book",
+  "expectedChapterCount": 8,
+  "expectedChapterTitles": [
+    "Chapter 1: The Foundation",
+    "Chapter 2: Building Blocks",
+    "Chapter 3: Advanced Concepts",
+    "Chapter 4: Applied Methods",
+    "Chapter 5: Critical Analysis",
+    "Chapter 6: Synthesis",
+    "Chapter 7: Conclusion",
+    "Chapter 8: Extensions"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 24,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 16,
+  "expectedQuoteCount": 8,
+  "expectedAICalls": 9
+}
