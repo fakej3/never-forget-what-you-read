@@ -61,6 +61,9 @@ function isAllCapsHeading(line) {
   return /^[A-Z0-9\s\-–—:,.'!?"""'']+$/.test(line) && /[A-Z]{2,}/.test(line);
 }
 
+// Word-numbers accepted on the line following a bare "CHAPTER" label
+const WORD_NUMBERS = /^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty(?:[\s-](?:one|two|three|four|five|six|seven|eight|nine))?|\d{1,3})$/i;
+
 /**
  * Scan a page's text for a chapter heading.
  * Returns the heading string or null.
@@ -72,6 +75,23 @@ function findHeading(pageText, runningHeaders) {
   const isSparse  = wordCount < SPARSE_WORDS;
 
   const limit = Math.min(SCAN_LINES, lines.length);
+
+  // Pass 0: multi-line chapter headings where label and number appear on separate lines
+  // e.g. line N = "CHAPTER", line N+1 = "ONE" or "1", optional line N+2 = chapter title
+  for (let i = 0; i < Math.min(limit, lines.length - 1); i++) {
+    const line = lines[i];
+    if (runningHeaders.has(line)) continue;
+    if (/^chapter$/i.test(line)) {
+      const next = lines[i + 1];
+      if (next && !runningHeaders.has(next) && WORD_NUMBERS.test(next.trim())) {
+        // Combine into a single heading string for title display
+        const title = lines[i + 2] && !runningHeaders.has(lines[i + 2]) && !WORD_NUMBERS.test(lines[i + 2]) && lines[i + 2].length < 80
+          ? `${line} ${next} — ${lines[i + 2]}`
+          : `${line} ${next}`;
+        return title;
+      }
+    }
+  }
 
   // Pass 1: strict pattern match across first SCAN_LINES
   for (let i = 0; i < limit; i++) {
@@ -195,8 +215,9 @@ export function detectChapters(pages, outline = []) {
   }
 
   // Strategy B: Pattern matching
+  // >= 2 because 1 result (front-matter only) is indistinguishable from no chapters
   const patternResult = detectFromPatterns(pages);
-  if (patternResult.length >= 3) return patternResult;
+  if (patternResult.length >= 2) return patternResult;
 
   // Strategy C: N-page sections (for books where heading detection fails)
   if (pages.length >= 20) {
