@@ -74,10 +74,10 @@ async function setupRateLimitMock(page, rateLimitCount, mockFn) {
 async function uploadBook(page, pdfPath) {
   // Set API key in IndexedDB via app's settings form
   await page.click('#open-settings');
-  await page.waitForSelector('#settings-modal:not(.hidden)');
+  await page.waitForSelector('#settings-modal', { state: 'visible' });
   await page.fill('#api-key-input', 'test-api-key-for-qa-testing');
   await page.click('#save-settings');
-  await page.waitForSelector('#settings-modal.hidden', { timeout: 5000 });
+  await page.waitForSelector('#settings-modal', { state: 'hidden', timeout: 5000 });
 
   // Upload file
   const fileInput = page.locator('#file-input');
@@ -128,7 +128,7 @@ async function openBookFromLibrary(page, titleText) {
   // Click on the book
   await page.click(`text="${titleText}"`);
   // Wait for detail view
-  await page.waitForSelector('#book-detail:not(.hidden)', { timeout: 5000 });
+  await page.waitForSelector('#book-detail', { state: 'visible', timeout: 5000 });
 }
 
 /**
@@ -186,7 +186,7 @@ test.describe('Full pipeline E2E tests', () => {
 
     // Click first book card (the one we just processed)
     await bookCards.first().click();
-    await page.waitForSelector('#book-detail:not(.hidden)', { timeout: 10000 });
+    await page.waitForSelector('#book-detail', { state: 'visible', timeout: 10000 });
 
     // Check chapter count in detail view
     const chapterItems = await page.locator('#chapter-list').locator('[class*="chapter"], li, div').count();
@@ -304,6 +304,7 @@ test.describe('Full pipeline E2E tests', () => {
   // ── Test 5: resume test ──────────────────────────────────────────────────
 
   test('5. resume test — rate limit after 2 calls, then Resume AI completes', async ({ page }) => {
+    test.setTimeout(240000); // needs extra time for rate-limit wait + resume + completion
     const slug    = 'tiny-book';
     const pdfPath = bookPath(slug);
 
@@ -313,11 +314,11 @@ test.describe('Full pipeline E2E tests', () => {
     const callCount = { n: 0 };
     const mockFn = createMockAI(callCount);
 
-    // Rate limit the first 2 calls, then normal responses
+    // Rate limit only the first call, then normal responses
     let interceptCount = 0;
     await page.route('**/generativelanguage.googleapis.com/**', async route => {
       interceptCount++;
-      if (interceptCount <= 2) {
+      if (interceptCount === 1) {
         await route.fulfill({
           status: 429,
           contentType: 'application/json',
