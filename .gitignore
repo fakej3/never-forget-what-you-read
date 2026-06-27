@@ -1,0 +1,11 @@
+# Agent worktrees (temporary Claude Code working directories)
+.claude/worktrees/
+
+# Generated test artifacts (recreated by npm run qa)
+tests/generated-books/*.pdf
+tests/reports/*.html
+tests/reports/*.json
+tests/regression/report-*.json
+
+# Node modules for tests
+tests/node_modules/
