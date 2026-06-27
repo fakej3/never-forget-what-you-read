@@ -116,22 +116,67 @@ export class PDFUploader {
   }
 
   async _extractPage(pdf, pageNum) {
-    const page    = await pdf.getPage(pageNum);
-    const content = await page.getTextContent();
+    const page     = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 1 });
+    const width    = viewport.width;
+    const height   = viewport.height;
+    const content  = await page.getTextContent();
 
-    let lastY = null;
-    let text  = '';
+    // Group items into lines by similar Y coordinate (within 3pt)
+    const lineMap = new Map(); // key = bucketed Y → array of items
 
     for (const item of content.items) {
       if (!item.str) continue;
-      if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
-        text += '\n';
+      const y = item.transform[5];
+      // Find existing bucket within 3pt
+      let bucketKey = null;
+      for (const key of lineMap.keys()) {
+        if (Math.abs(key - y) <= 3) { bucketKey = key; break; }
       }
-      text  += item.str;
-      lastY  = item.transform[5];
+      if (bucketKey === null) {
+        lineMap.set(y, [item]);
+      } else {
+        lineMap.get(bucketKey).push(item);
+      }
     }
 
+    // Sort buckets by Y descending (top of page first in PDF coords)
+    const sortedYs = [...lineMap.keys()].sort((a, b) => b - a);
+
+    const lines = sortedYs.map(y => {
+      const items = lineMap.get(y).sort((a, b) => a.transform[4] - b.transform[4]);
+
+      const text      = items.map(it => it.str).join('');
+      const x         = items[0].transform[4];
+      const lineWidth = items.reduce((sum, it) => sum + (it.width || 0), 0);
+
+      let fontSize = 0;
+      let bold     = false;
+      let italic   = false;
+
+      for (const it of items) {
+        const fs = Math.abs(it.transform[3] || it.transform[0] || 0);
+        if (fs > fontSize) fontSize = fs;
+
+        const fn = (it.fontName || '').toLowerCase();
+        if (fn.includes('bold') || fn.includes('heavy') || fn.includes('black')) {
+          bold = true;
+        } else if (/[a-z]{3,}b$/.test(fn)) {
+          // ends with 'b' preceded by at least 3 chars (e.g. "HelveticaB")
+          bold = true;
+        }
+        if (fn.includes('italic') || fn.includes('oblique')) {
+          italic = true;
+        }
+      }
+
+      return { text, y, x, lineWidth, fontSize, bold, italic };
+    });
+
+    // Reconstruct text by joining line texts with '\n'
+    const text = lines.map(l => l.text).join('\n').trim();
+
     page.cleanup();
-    return { pageNum, text: text.trim() };
+    return { pageNum, text, width, height, lines };
   }
 }
