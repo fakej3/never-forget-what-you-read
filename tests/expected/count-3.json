@@ -1,6 +1,6 @@
 {
-  "bookSlug": "long-chapter-book",
-  "bookTitle": "The Long Chapter Book",
+  "bookSlug": "count-3",
+  "bookTitle": "3 Chapter Book",
   "expectedChapterCount": 3,
   "expectedChapterTitles": [
     "Chapter 1: Introduction",
@@ -9,7 +9,7 @@
   ],
   "detectionStrategy": "patterns",
   "headingFormat": "standard",
-  "expectedPages": 60,
+  "expectedPages": 18,
   "expectedConceptCount": 9,
   "expectedPrincipleCount": 6,
   "expectedActionableCount": 6,

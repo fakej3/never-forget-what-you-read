@@ -1,0 +1,21 @@
+{
+  "bookSlug": "running-header-5",
+  "bookTitle": "Running Header 5",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "Chapter One: Introduction",
+    "Chapter Two: The Foundation",
+    "Chapter Three: Building Blocks",
+    "Chapter Four: Advanced Concepts",
+    "Chapter Five: Applied Methods"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "running-header",
+  "expectedPages": 20,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

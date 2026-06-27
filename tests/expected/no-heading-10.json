@@ -1,0 +1,16 @@
+{
+  "bookSlug": "no-heading-10",
+  "bookTitle": "No Heading 10 Pages",
+  "expectedChapterCount": 1,
+  "expectedChapterTitles": [],
+  "detectionStrategy": "single-section",
+  "headingFormat": "none",
+  "expectedPages": 10,
+  "expectedConceptCount": 3,
+  "expectedPrincipleCount": 2,
+  "expectedActionableCount": 2,
+  "expectedVocabularyCount": 2,
+  "expectedQuoteCount": 1,
+  "expectedAICalls": 1,
+  "expectedSectionCount": 1
+}

@@ -470,3 +470,277 @@ describe('detectChapters — edge cases', () => {
   });
 
 });
+
+describe('detectChapters — scoring engine', () => {
+
+  test('Score >= 40 for chapter keyword line', () => {
+    const pages = [
+      page(1, 'Chapter 1: The Beginning\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+    ];
+    const result = detectChapters(pages, [], { debug: true });
+    assert.ok(result._debug, 'debug mode should attach _debug');
+    assert.ok(result._debug.allCandidates.length >= 1, 'should have candidates');
+    const ch1 = result._debug.allCandidates.find(c => /chapter 1/i.test(c.title));
+    assert.ok(ch1, 'Chapter 1 should be a candidate');
+    assert.ok(ch1.score >= 40, `Chapter 1 score ${ch1.score} should be >= 40`);
+  });
+
+  test('Prose line does not become a chapter in a multi-page book', () => {
+    // Prose lines may score moderately due to sparse-page bonuses, but
+    // they should not be returned as chapter headings if no pattern matches
+    const pages = [
+      page(1, 'This is a regular prose sentence that goes on and on for a while.\n' + denseBody(1)),
+      page(2, denseBody(2)),
+      page(3, denseBody(3)),
+    ];
+    const result = detectChapters(pages, [], { debug: true });
+    // Main assertion: dense prose does not become a chapter heading
+    const hasProseChapter = result.some(ch => /regular prose/.test(ch.title));
+    assert.equal(hasProseChapter, false, 'Prose line should not become a chapter');
+  });
+
+  test('Debug mode attaches _debug object', () => {
+    const pages = [
+      page(1, 'Chapter 1: Test\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Chapter 2: Test\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+    ];
+    const result = detectChapters(pages, [], { debug: true });
+    assert.ok(result._debug, 'debug mode should attach _debug');
+    assert.ok(typeof result._debug.strategy === 'string', 'debug should have strategy');
+    assert.ok(Array.isArray(result._debug.allCandidates), 'debug should have allCandidates');
+    assert.ok(Array.isArray(result._debug.runningHeaders), 'debug should have runningHeaders');
+  });
+
+  test('Strategy is numbered-sequence or scoring for clean numeric sequence', () => {
+    const pages = [];
+    for (let i = 1; i <= 5; i++) {
+      pages.push(page(i * 2 - 1, `Chapter ${i}: Title ${i}\n` + SPARSE_BODY));
+      pages.push(page(i * 2, denseBody(i)));
+    }
+    const result = detectChapters(pages);
+    assert.ok(result._diagnostics, 'should have diagnostics');
+    assert.ok(
+      result._diagnostics.strategy === 'numbered-sequence' || result._diagnostics.strategy === 'scoring',
+      `Strategy should be numbered-sequence or scoring, got ${result._diagnostics.strategy}`
+    );
+  });
+
+  test('word-number chapters detected', () => {
+    const pages = [
+      page(1, 'Chapter One: The Beginning\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Chapter Two: The Middle\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+      page(5, 'Chapter Three: The End\n' + SPARSE_BODY),
+      page(6, denseBody(3)),
+    ];
+    const result = detectChapters(pages);
+    assert.equal(result.length, 3, `Should detect 3 word-number chapters, got ${result.length}`);
+  });
+
+  test('bare-arabic chapters detected (N. Title format)', () => {
+    const pages = [
+      page(1, '1. Opening Chapter\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, '2. Second Chapter\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+      page(5, '3. Third Chapter\n' + SPARSE_BODY),
+      page(6, denseBody(3)),
+    ];
+    const result = detectChapters(pages);
+    assert.ok(result.length >= 2, `Should detect bare arabic chapters, got ${result.length}`);
+  });
+
+  test('Smart fallback produces at least 1 section for no-heading books', () => {
+    const pages = [];
+    for (let i = 1; i <= 20; i++) {
+      if (i % 5 === 1) {
+        pages.push(page(i, 'New Topic\n' + SPARSE_BODY));
+      } else {
+        pages.push(page(i, denseBody(i)));
+      }
+    }
+    const result = detectChapters(pages);
+    assert.ok(result.length >= 1, `Should produce at least 1 section, got ${result.length}`);
+  });
+
+  test('detectChapters accepts opts parameter without error', () => {
+    const pages = [
+      page(1, 'Chapter 1: Test\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+    ];
+    assert.doesNotThrow(() => detectChapters(pages, [], {}));
+    assert.doesNotThrow(() => detectChapters(pages, [], { debug: false }));
+    assert.doesNotThrow(() => detectChapters(pages, [], { debug: true }));
+  });
+
+  test('rich page data (with .lines) works without error', () => {
+    const pages = [
+      {
+        pageNum: 1,
+        text: 'Chapter 1: Test\n' + SPARSE_BODY,
+        width: 612,
+        height: 792,
+        lines: [
+          { text: 'Chapter 1: Test', y: 700, x: 72, lineWidth: 200, fontSize: 16, bold: true, italic: false },
+          { text: SPARSE_BODY.slice(0, 50), y: 660, x: 72, lineWidth: 400, fontSize: 12, bold: false, italic: false },
+        ],
+      },
+      { pageNum: 2, text: denseBody(1), width: 612, height: 792, lines: [] },
+      {
+        pageNum: 3,
+        text: 'Chapter 2: Test\n' + SPARSE_BODY,
+        width: 612,
+        height: 792,
+        lines: [
+          { text: 'Chapter 2: Test', y: 700, x: 72, lineWidth: 200, fontSize: 16, bold: true, italic: false },
+        ],
+      },
+      { pageNum: 4, text: denseBody(2), width: 612, height: 792, lines: [] },
+    ];
+    let result;
+    assert.doesNotThrow(() => { result = detectChapters(pages, [], {}); });
+    assert.ok(result.length >= 2, `Rich pages should detect chapters, got ${result.length}`);
+  });
+
+  test('Sequential numbered chapters all detected', () => {
+    const pages = [];
+    for (let i = 1; i <= 5; i++) {
+      pages.push(page(i * 3 - 2, `Chapter ${i}: Topic ${i}\n` + SPARSE_BODY));
+      pages.push(page(i * 3 - 1, denseBody(i * 2)));
+      pages.push(page(i * 3, denseBody(i * 2 + 1)));
+    }
+    const result = detectChapters(pages);
+    assert.equal(result.length, 5, `Sequential numbered chapters should detect all 5, got ${result.length}`);
+  });
+
+  test('Running header in everyPageLines is suppressed', () => {
+    const header = 'ALWAYS PRESENT HEADER';
+    const pages = [];
+    for (let i = 1; i <= 15; i++) {
+      const isChapter = (i === 1 || i === 6 || i === 11);
+      const chText = isChapter ? `Chapter ${Math.ceil(i/5)}: Title\n` : '';
+      pages.push(page(i, `${header}\n${chText}${denseBody(i)}`));
+    }
+    const result = detectChapters(pages);
+    const hasHeaderAsChapter = result.some(ch => ch.title === header);
+    assert.equal(hasHeaderAsChapter, false, 'Every-page line should not be a chapter');
+    assert.ok(result.length >= 2, 'Real chapters should still be detected');
+  });
+
+  test('diagnostics structure is preserved', () => {
+    const pages = [
+      page(1, 'Chapter 1: Test\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Chapter 2: Test\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+    ];
+    const result = detectChapters(pages);
+    assert.ok(result._diagnostics, 'should have _diagnostics');
+    assert.ok(typeof result._diagnostics.strategy === 'string');
+    assert.ok(typeof result._diagnostics.detectedChapters === 'number');
+    assert.ok(typeof result._diagnostics.avgPagesPerChapter === 'number');
+    assert.ok(Array.isArray(result._diagnostics.warnings));
+  });
+
+  test('Prologue and epilogue detected as chapters', () => {
+    const pages = [
+      page(1, 'Prologue\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Chapter 1: Main\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+      page(5, 'Chapter 2: Next\n' + SPARSE_BODY),
+      page(6, denseBody(3)),
+      page(7, 'Epilogue\n' + SPARSE_BODY),
+    ];
+    const result = detectChapters(pages);
+    assert.ok(result.length >= 3, `Prologue + chapters + Epilogue should detect >= 3, got ${result.length}`);
+  });
+
+  test('front-matter pages are handled gracefully', () => {
+    const pages = [
+      page(1, 'Prologue\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Chapter 1: First\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+      page(5, 'Chapter 2: Second\n' + SPARSE_BODY),
+      page(6, denseBody(3)),
+      page(7, 'Chapter 3: Third\n' + SPARSE_BODY),
+      page(8, denseBody(4)),
+    ];
+    const result = detectChapters(pages);
+    assert.ok(result.length >= 3, `Should detect at least 3 chapters, got ${result.length}`);
+    assert.ok(result.length <= 4, `Should detect at most 4 chapters (prologue may merge), got ${result.length}`);
+  });
+
+  test('Part One/Two/Three word-number parts detected', () => {
+    const pages = [
+      page(1, 'Part One: The Foundation\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Part Two: The Development\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+      page(5, 'Part Three: The Resolution\n' + SPARSE_BODY),
+      page(6, denseBody(3)),
+    ];
+    const result = detectChapters(pages);
+    assert.equal(result.length, 3, `Part word-numbers should detect 3 parts, got ${result.length}`);
+    assert.match(result[0].title, /part one/i);
+  });
+
+  test('Section N format detected', () => {
+    const pages = [
+      page(1, 'Section 1\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Section 2\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+      page(5, 'Section 3\n' + SPARSE_BODY),
+      page(6, denseBody(3)),
+      page(7, 'Section 4\n' + SPARSE_BODY),
+      page(8, denseBody(4)),
+    ];
+    const result = detectChapters(pages);
+    assert.ok(result.length >= 3, `Should detect section headings, got ${result.length}`);
+  });
+
+  test('empty outline falls through to scoring', () => {
+    const pages = [
+      page(1, 'Chapter 1: Test\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+      page(3, 'Chapter 2: Test\n' + SPARSE_BODY),
+      page(4, denseBody(2)),
+    ];
+    const result = detectChapters(pages, []);
+    assert.equal(result.length, 2, `Empty outline should fall through to scoring, got ${result.length}`);
+  });
+
+  test('short book < 20 pages with no headings → Full Book', () => {
+    const pages = [];
+    for (let i = 1; i <= 8; i++) pages.push(page(i, denseBody(i)));
+    const result = detectChapters(pages);
+    assert.equal(result.length, 1, 'Short dense book should be Full Book');
+    assert.equal(result[0].title, 'Full Book');
+  });
+
+  test('detectChapters returns array with _diagnostics when called with opts', () => {
+    const pages = [
+      page(1, 'Chapter 1: Test\n' + SPARSE_BODY),
+      page(2, denseBody(1)),
+    ];
+    const result = detectChapters(pages, [], { debug: false });
+    assert.ok(Array.isArray(result), 'result should be an array');
+    assert.ok(result._diagnostics, 'should have _diagnostics even without debug');
+  });
+
+  test('n-page sections strategy name is correct', () => {
+    const pages = [];
+    for (let i = 1; i <= 50; i++) pages.push(page(i, denseBody(i)));
+    const result = detectChapters(pages);
+    assert.ok(result._diagnostics, 'should have diagnostics');
+    assert.equal(result._diagnostics.strategy, 'n-page-sections');
+    assert.equal(result.length, 5);
+  });
+
+});

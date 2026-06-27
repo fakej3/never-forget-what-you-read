@@ -1,7 +1,7 @@
 {
-  "bookSlug": "many-small-chapters",
-  "bookTitle": "Many Small Chapters",
-  "expectedChapterCount": 50,
+  "bookSlug": "count-45",
+  "bookTitle": "45 Chapter Book",
+  "expectedChapterCount": 45,
   "expectedChapterTitles": [
     "Chapter 1: Introduction",
     "Chapter 2: The Foundation",
@@ -47,20 +47,15 @@
     "Chapter 42: Legacy",
     "Chapter 43: Summary",
     "Chapter 44: Review",
-    "Chapter 45: Finale",
-    "Chapter 46: Introduction",
-    "Chapter 47: The Foundation",
-    "Chapter 48: Building Blocks",
-    "Chapter 49: Advanced Concepts",
-    "Chapter 50: Applied Methods"
+    "Chapter 45: Finale"
   ],
-  "detectionStrategy": "patterns",
+  "detectionStrategy": "numbered-sequence",
   "headingFormat": "standard",
-  "expectedPages": 50,
+  "expectedPages": 45,
   "expectedConceptCount": 20,
   "expectedPrincipleCount": 15,
   "expectedActionableCount": 15,
   "expectedVocabularyCount": 20,
   "expectedQuoteCount": 10,
-  "expectedAICalls": 51
+  "expectedAICalls": 46
 }

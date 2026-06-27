@@ -1,0 +1,28 @@
+{
+  "bookSlug": "section-numbered-12",
+  "bookTitle": "Section Numbered 12",
+  "expectedChapterCount": 12,
+  "expectedChapterTitles": [
+    "Section 1",
+    "Section 2",
+    "Section 3",
+    "Section 4",
+    "Section 5",
+    "Section 6",
+    "Section 7",
+    "Section 8",
+    "Section 9",
+    "Section 10",
+    "Section 11",
+    "Section 12"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "section",
+  "expectedPages": 24,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 13
+}

@@ -1,0 +1,21 @@
+{
+  "bookSlug": "section-numbered-5",
+  "bookTitle": "Section Numbered 5",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "Section 1",
+    "Section 2",
+    "Section 3",
+    "Section 4",
+    "Section 5"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "section",
+  "expectedPages": 20,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

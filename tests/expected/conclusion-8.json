@@ -1,0 +1,25 @@
+{
+  "bookSlug": "conclusion-8",
+  "bookTitle": "Conclusion Book",
+  "expectedChapterCount": 9,
+  "expectedChapterTitles": [
+    "Chapter 1: First",
+    "Chapter 2: Second",
+    "Chapter 3: Third",
+    "Chapter 4: Fourth",
+    "Chapter 5: Fifth",
+    "Chapter 6: Sixth",
+    "Chapter 7: Seventh",
+    "Chapter 8: Eighth",
+    "Conclusion"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 27,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 18,
+  "expectedQuoteCount": 9,
+  "expectedAICalls": 10
+}

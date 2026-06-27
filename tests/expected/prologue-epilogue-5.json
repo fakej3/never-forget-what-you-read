@@ -1,0 +1,23 @@
+{
+  "bookSlug": "prologue-epilogue-5",
+  "bookTitle": "Prologue Epilogue",
+  "expectedChapterCount": 7,
+  "expectedChapterTitles": [
+    "Prologue",
+    "Chapter 1: Opening",
+    "Chapter 2: Rising",
+    "Chapter 3: Climax",
+    "Chapter 4: Falling",
+    "Chapter 5: Conclusion",
+    "Epilogue"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 28,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 14,
+  "expectedActionableCount": 14,
+  "expectedVocabularyCount": 14,
+  "expectedQuoteCount": 7,
+  "expectedAICalls": 8
+}

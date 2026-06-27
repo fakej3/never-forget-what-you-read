@@ -1,0 +1,28 @@
+{
+  "bookSlug": "running-header-12",
+  "bookTitle": "Running Header 12",
+  "expectedChapterCount": 12,
+  "expectedChapterTitles": [
+    "Chapter One: Introduction",
+    "Chapter Two: The Foundation",
+    "Chapter Three: Building Blocks",
+    "Chapter Four: Advanced Concepts",
+    "Chapter Five: Applied Methods",
+    "Chapter Six: Critical Analysis",
+    "Chapter Seven: Synthesis",
+    "Chapter Eight: Conclusion",
+    "Chapter Nine: Extensions",
+    "Chapter Ten: Reflections",
+    "Chapter Eleven: Future Directions",
+    "Chapter Twelve: Legacy"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "running-header",
+  "expectedPages": 36,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 13
+}

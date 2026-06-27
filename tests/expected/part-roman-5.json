@@ -1,0 +1,21 @@
+{
+  "bookSlug": "part-roman-5",
+  "bookTitle": "Part Roman 5",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "Part I: The First",
+    "Part II: The Second",
+    "Part III: The Third",
+    "Part IV: The Fourth",
+    "Part V: The Fifth"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 20,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

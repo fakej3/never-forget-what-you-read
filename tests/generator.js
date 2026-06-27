@@ -8,7 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-import { BOOKS, STRESS_BOOKS, makeChapterTitles, toWordNumber } from './books/index.js';
+import { BOOKS, STRESS_BOOKS, EXTENDED_BOOKS, makeChapterTitles, toWordNumber } from './books/index.js';
 import { wrapText, makeParagraph } from './helpers/pdf-builder.js';
 import { computeExpectedCounts } from './helpers/mock-ai.js';
 
@@ -192,7 +192,8 @@ function headingLinesForFormat(format, index, titles) {
   const title = titles[index];
 
   switch (format) {
-    case 'self-help': {
+    case 'self-help':
+    case 'caps-word-number': {
       // CHAPTER on line 1, word-number on line 2, chapter title on line 3
       const num = toWordNumber(index + 1).toUpperCase();
       const topicTitles = ['THOUGHTS ARE THINGS','DESIRE','FAITH','AUTO-SUGGESTION',
@@ -321,6 +322,59 @@ async function generateManySmallChapters(bookDef) {
   return doc.save();
 }
 
+async function generateRunningHeaderBook(bookDef) {
+  const doc      = await PDFDocument.create();
+  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  const bodyFont = await doc.embedFont(StandardFonts.Helvetica);
+
+  const titles       = makeChapterTitles(bookDef);
+  const chapterCount = bookDef.chapterCount;
+  const contentPages = (bookDef.pagesPerChapter || 1) - 1;
+  const runningHeader = bookDef.title; // book title as running header
+
+  for (let i = 0; i < chapterCount; i++) {
+    // Chapter opening page with running header at top
+    const headingLines = headingLinesForFormat(bookDef.headingFormat, i, titles);
+    const bodyParagraph = makeParagraph(i * 17 + 3, 130);
+    const chPage = addPage(doc);
+
+    // Draw running header at top
+    chPage.drawText(runningHeader, { x: MARGIN, y: 750, font: bodyFont, size: 9, color: rgb(0.5, 0.5, 0.5) });
+
+    // Draw chapter headings starting at y=680
+    let y = 680;
+    for (const line of headingLines) {
+      if (y < 200) break;
+      chPage.drawText(line, { x: MARGIN, y, font: boldFont, size: 16, color: rgb(0,0,0) });
+      y -= 24;
+    }
+    if (bodyParagraph) {
+      y -= 20;
+      drawWrapped(chPage, bodyParagraph, bodyFont, 11, MARGIN, Math.min(y, 560));
+    }
+
+    // Content pages with running header
+    for (let p = 0; p < contentPages; p++) {
+      const contentPage = addPage(doc);
+      contentPage.drawText(runningHeader, { x: MARGIN, y: 750, font: bodyFont, size: 9, color: rgb(0.5, 0.5, 0.5) });
+      let cy = 720;
+      const lineSize = 11;
+      for (let q = 0; q < 3; q++) {
+        const text = makeParagraph(i * contentPages * 3 + p * 3 + q, 90);
+        const lines = wrapText(text, bodyFont, lineSize, BODY_WIDTH);
+        for (const line of lines) {
+          if (cy < 60) break;
+          contentPage.drawText(line, { x: MARGIN, y: cy, font: bodyFont, size: lineSize, color: rgb(0,0,0) });
+          cy -= lineSize * 1.4;
+        }
+        cy -= lineSize * 1.4;
+      }
+    }
+  }
+
+  return doc.save();
+}
+
 async function generateStressBook(bookDef) {
   const doc      = await PDFDocument.create();
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -362,13 +416,21 @@ function makeGroundTruth(bookDef) {
   // For no-headings books, adjust section count expectations
   if (bookDef.headingFormat === 'none') {
     const pages = bookDef.totalPages;
-    const targetSections = Math.min(20, Math.max(5, Math.floor(pages / 20)));
-    const sectionSize    = Math.ceil(pages / targetSections);
-    const actualSections = Math.ceil(pages / sectionSize);
-    groundTruth.expectedChapterCount  = actualSections;
-    groundTruth.expectedSectionCount  = actualSections;
-    const sectCounts = computeExpectedCounts(actualSections);
-    Object.assign(groundTruth, sectCounts);
+    if (pages < 20) {
+      // Short books → Full Book (single section)
+      groundTruth.expectedChapterCount  = 1;
+      groundTruth.expectedSectionCount  = 1;
+      const sectCounts = computeExpectedCounts(1);
+      Object.assign(groundTruth, sectCounts);
+    } else {
+      const targetSections = Math.min(20, Math.max(5, Math.floor(pages / 20)));
+      const sectionSize    = Math.ceil(pages / targetSections);
+      const actualSections = Math.ceil(pages / sectionSize);
+      groundTruth.expectedChapterCount  = actualSections;
+      groundTruth.expectedSectionCount  = actualSections;
+      const sectCounts = computeExpectedCounts(actualSections);
+      Object.assign(groundTruth, sectCounts);
+    }
   }
 
   return groundTruth;
@@ -379,7 +441,7 @@ function makeGroundTruth(bookDef) {
 async function generateAll() {
   console.log('Generating test PDFs...\n');
 
-  const allBooks = [...BOOKS, ...STRESS_BOOKS];
+  const allBooks = [...BOOKS, ...STRESS_BOOKS, ...EXTENDED_BOOKS];
   let generated = 0;
 
   for (const bookDef of allBooks) {
@@ -392,12 +454,19 @@ async function generateAll() {
         case 'none':
           bytes = await generateNoHeadingsBook(bookDef);
           break;
+        case 'running-header':
+          bytes = await generateRunningHeaderBook(bookDef);
+          break;
         case 'self-help':
+        case 'caps-word-number':
         case 'standard':
         case 'roman':
         case 'part':
         case 'section':
         case 'mixed':
+        case 'word-number':
+        case 'word-number-parts':
+        case 'bare-arabic':
           if (bookDef.slug === 'many-small-chapters') {
             bytes = await generateManySmallChapters(bookDef);
           } else if (bookDef.slug === 'large-paragraph-book') {

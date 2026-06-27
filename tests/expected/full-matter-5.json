@@ -1,0 +1,24 @@
+{
+  "bookSlug": "full-matter-5",
+  "bookTitle": "Full Matter Book",
+  "expectedChapterCount": 8,
+  "expectedChapterTitles": [
+    "Foreword",
+    "Preface",
+    "Chapter 1: One",
+    "Chapter 2: Two",
+    "Chapter 3: Three",
+    "Chapter 4: Four",
+    "Chapter 5: Five",
+    "Conclusion"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 24,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 16,
+  "expectedQuoteCount": 8,
+  "expectedAICalls": 9
+}

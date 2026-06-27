@@ -1,0 +1,29 @@
+{
+  "bookSlug": "caps-heading-13",
+  "bookTitle": "Caps Heading 13",
+  "expectedChapterCount": 13,
+  "expectedChapterTitles": [
+    "CHAPTER ONE — THOUGHTS ARE THINGS",
+    "CHAPTER TWO — DESIRE",
+    "CHAPTER THREE — FAITH",
+    "CHAPTER FOUR — AUTO-SUGGESTION",
+    "CHAPTER FIVE — SPECIALIZED KNOWLEDGE",
+    "CHAPTER SIX — IMAGINATION",
+    "CHAPTER SEVEN — ORGANIZED PLANNING",
+    "CHAPTER EIGHT — DECISION",
+    "CHAPTER NINE — PERSISTENCE",
+    "CHAPTER TEN — POWER",
+    "CHAPTER ELEVEN — MYSTERY",
+    "CHAPTER TWELVE — SUBCONSCIOUS",
+    "CHAPTER THIRTEEN — THE BRAIN"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "self-help",
+  "expectedPages": 39,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 14
+}

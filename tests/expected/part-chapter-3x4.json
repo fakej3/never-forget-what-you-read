@@ -1,0 +1,28 @@
+{
+  "bookSlug": "part-chapter-3x4",
+  "bookTitle": "Parts 3x4",
+  "expectedChapterCount": 12,
+  "expectedChapterTitles": [
+    "Part 1: Development",
+    "Part 2: Integration",
+    "Part 3: Application",
+    "Part 4: Mastery",
+    "Part 5: Review",
+    "Part 6: Synthesis",
+    "Part 7: Conclusion",
+    "Part 8: Extension",
+    "Part 9: Legacy",
+    "Part 10: Strategy",
+    "Part 11: Development",
+    "Part 12: Integration"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 36,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 13
+}

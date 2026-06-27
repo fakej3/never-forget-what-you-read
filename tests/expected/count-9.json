@@ -1,7 +1,7 @@
 {
-  "bookSlug": "vocabulary-heavy-book",
-  "bookTitle": "The Vocabulary Heavy Book",
-  "expectedChapterCount": 8,
+  "bookSlug": "count-9",
+  "bookTitle": "9 Chapter Book",
+  "expectedChapterCount": 9,
   "expectedChapterTitles": [
     "Chapter 1: Introduction",
     "Chapter 2: The Foundation",
@@ -10,15 +10,16 @@
     "Chapter 5: Applied Methods",
     "Chapter 6: Critical Analysis",
     "Chapter 7: Synthesis",
-    "Chapter 8: Conclusion"
+    "Chapter 8: Conclusion",
+    "Chapter 9: Extensions"
   ],
-  "detectionStrategy": "patterns",
+  "detectionStrategy": "numbered-sequence",
   "headingFormat": "standard",
-  "expectedPages": 24,
+  "expectedPages": 27,
   "expectedConceptCount": 20,
   "expectedPrincipleCount": 15,
   "expectedActionableCount": 15,
-  "expectedVocabularyCount": 16,
-  "expectedQuoteCount": 8,
-  "expectedAICalls": 9
+  "expectedVocabularyCount": 18,
+  "expectedQuoteCount": 9,
+  "expectedAICalls": 10
 }

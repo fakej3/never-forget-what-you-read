@@ -1,0 +1,24 @@
+{
+  "bookSlug": "part-roman-8",
+  "bookTitle": "Part Roman 8",
+  "expectedChapterCount": 8,
+  "expectedChapterTitles": [
+    "Part I: Opening",
+    "Part II: Rising",
+    "Part III: Turning",
+    "Part IV: Climax",
+    "Part V: Falling",
+    "Part VI: Resolution",
+    "Part VII: Denouement",
+    "Part VIII: Closure"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 24,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 16,
+  "expectedQuoteCount": 8,
+  "expectedAICalls": 9
+}

@@ -1,7 +1,7 @@
 {
-  "bookSlug": "normal-book",
-  "bookTitle": "The Normal Book",
-  "expectedChapterCount": 20,
+  "bookSlug": "count-18",
+  "bookTitle": "18 Chapter Book",
+  "expectedChapterCount": 18,
   "expectedChapterTitles": [
     "Chapter 1: Introduction",
     "Chapter 2: The Foundation",
@@ -20,17 +20,15 @@
     "Chapter 15: Finale",
     "Chapter 16: Introduction",
     "Chapter 17: The Foundation",
-    "Chapter 18: Building Blocks",
-    "Chapter 19: Advanced Concepts",
-    "Chapter 20: Applied Methods"
+    "Chapter 18: Building Blocks"
   ],
-  "detectionStrategy": "patterns",
+  "detectionStrategy": "numbered-sequence",
   "headingFormat": "standard",
-  "expectedPages": 60,
+  "expectedPages": 36,
   "expectedConceptCount": 20,
   "expectedPrincipleCount": 15,
   "expectedActionableCount": 15,
   "expectedVocabularyCount": 20,
   "expectedQuoteCount": 10,
-  "expectedAICalls": 21
+  "expectedAICalls": 19
 }

@@ -1,0 +1,26 @@
+{
+  "bookSlug": "part-10",
+  "bookTitle": "Part 10 Chapters",
+  "expectedChapterCount": 10,
+  "expectedChapterTitles": [
+    "Part 1: Development",
+    "Part 2: Integration",
+    "Part 3: Application",
+    "Part 4: Mastery",
+    "Part 5: Review",
+    "Part 6: Synthesis",
+    "Part 7: Conclusion",
+    "Part 8: Extension",
+    "Part 9: Legacy",
+    "Part 10: Strategy"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 30,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 11
+}

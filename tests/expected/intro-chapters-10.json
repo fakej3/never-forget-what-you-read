@@ -1,0 +1,28 @@
+{
+  "bookSlug": "intro-chapters-10",
+  "bookTitle": "Intro Appendix 10",
+  "expectedChapterCount": 12,
+  "expectedChapterTitles": [
+    "Introduction",
+    "Chapter 1: Foundation",
+    "Chapter 2: Building",
+    "Chapter 3: Structure",
+    "Chapter 4: Analysis",
+    "Chapter 5: Methods",
+    "Chapter 6: Results",
+    "Chapter 7: Discussion",
+    "Chapter 8: Implications",
+    "Chapter 9: Future",
+    "Chapter 10: Summary",
+    "Appendix"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 36,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 13
+}

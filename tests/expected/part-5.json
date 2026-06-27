@@ -1,0 +1,21 @@
+{
+  "bookSlug": "part-5",
+  "bookTitle": "Part 5 Chapters",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "Part 1: Development",
+    "Part 2: Integration",
+    "Part 3: Application",
+    "Part 4: Mastery",
+    "Part 5: Review"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 20,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

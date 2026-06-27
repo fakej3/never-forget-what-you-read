@@ -1,0 +1,24 @@
+{
+  "bookSlug": "section-numbered-8",
+  "bookTitle": "Section Numbered 8",
+  "expectedChapterCount": 8,
+  "expectedChapterTitles": [
+    "Section 1",
+    "Section 2",
+    "Section 3",
+    "Section 4",
+    "Section 5",
+    "Section 6",
+    "Section 7",
+    "Section 8"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "section",
+  "expectedPages": 24,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 16,
+  "expectedQuoteCount": 8,
+  "expectedAICalls": 9
+}

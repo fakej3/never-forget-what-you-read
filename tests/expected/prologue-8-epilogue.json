@@ -1,0 +1,26 @@
+{
+  "bookSlug": "prologue-8-epilogue",
+  "bookTitle": "Prologue 8 Epilogue",
+  "expectedChapterCount": 10,
+  "expectedChapterTitles": [
+    "Prologue",
+    "Chapter 1: First",
+    "Chapter 2: Second",
+    "Chapter 3: Third",
+    "Chapter 4: Fourth",
+    "Chapter 5: Fifth",
+    "Chapter 6: Sixth",
+    "Chapter 7: Seventh",
+    "Chapter 8: Eighth",
+    "Epilogue"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 30,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 11
+}

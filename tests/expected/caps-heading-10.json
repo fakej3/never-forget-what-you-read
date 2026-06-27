@@ -1,0 +1,26 @@
+{
+  "bookSlug": "caps-heading-10",
+  "bookTitle": "Caps Heading 10",
+  "expectedChapterCount": 10,
+  "expectedChapterTitles": [
+    "CHAPTER ONE — THOUGHTS ARE THINGS",
+    "CHAPTER TWO — DESIRE",
+    "CHAPTER THREE — FAITH",
+    "CHAPTER FOUR — AUTO-SUGGESTION",
+    "CHAPTER FIVE — SPECIALIZED KNOWLEDGE",
+    "CHAPTER SIX — IMAGINATION",
+    "CHAPTER SEVEN — ORGANIZED PLANNING",
+    "CHAPTER EIGHT — DECISION",
+    "CHAPTER NINE — PERSISTENCE",
+    "CHAPTER TEN — POWER"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "self-help",
+  "expectedPages": 30,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 11
+}

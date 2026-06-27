@@ -1,0 +1,18 @@
+{
+  "bookSlug": "count-2",
+  "bookTitle": "2 Chapter Book",
+  "expectedChapterCount": 2,
+  "expectedChapterTitles": [
+    "Chapter 1: Introduction",
+    "Chapter 2: The Foundation"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 20,
+  "expectedConceptCount": 6,
+  "expectedPrincipleCount": 4,
+  "expectedActionableCount": 4,
+  "expectedVocabularyCount": 4,
+  "expectedQuoteCount": 2,
+  "expectedAICalls": 3
+}

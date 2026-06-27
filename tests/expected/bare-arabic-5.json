@@ -1,0 +1,21 @@
+{
+  "bookSlug": "bare-arabic-5",
+  "bookTitle": "Bare Arabic 5",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "1. Introduction",
+    "2. The Foundation",
+    "3. Building Blocks",
+    "4. Advanced Concepts",
+    "5. Applied Methods"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "bare-arabic",
+  "expectedPages": 20,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

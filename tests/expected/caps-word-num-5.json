@@ -1,0 +1,21 @@
+{
+  "bookSlug": "caps-word-num-5",
+  "bookTitle": "Caps Word Number",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "CHAPTER ONE — THOUGHTS ARE THINGS",
+    "CHAPTER TWO — DESIRE",
+    "CHAPTER THREE — FAITH",
+    "CHAPTER FOUR — AUTO-SUGGESTION",
+    "CHAPTER FIVE — SPECIALIZED KNOWLEDGE"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "caps-word-number",
+  "expectedPages": 10,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

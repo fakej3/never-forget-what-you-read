@@ -1,0 +1,17 @@
+{
+  "bookSlug": "count-1",
+  "bookTitle": "1 Chapter Book",
+  "expectedChapterCount": 1,
+  "expectedChapterTitles": [
+    "Chapter 1: Introduction"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 5,
+  "expectedConceptCount": 3,
+  "expectedPrincipleCount": 2,
+  "expectedActionableCount": 2,
+  "expectedVocabularyCount": 2,
+  "expectedQuoteCount": 1,
+  "expectedAICalls": 1
+}

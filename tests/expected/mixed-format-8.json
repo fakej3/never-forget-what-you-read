@@ -1,0 +1,24 @@
+{
+  "bookSlug": "mixed-format-8",
+  "bookTitle": "Mixed Format 8",
+  "expectedChapterCount": 8,
+  "expectedChapterTitles": [
+    "Chapter 1: First",
+    "Part 2: Second",
+    "III. Third",
+    "Chapter 4: Fourth",
+    "Part 5: Fifth",
+    "VI. Sixth",
+    "Chapter 7: Seventh",
+    "Chapter 8: Eighth"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "mixed",
+  "expectedPages": 24,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 16,
+  "expectedQuoteCount": 8,
+  "expectedAICalls": 9
+}

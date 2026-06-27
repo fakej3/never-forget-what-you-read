@@ -1,0 +1,23 @@
+{
+  "bookSlug": "interlude-5",
+  "bookTitle": "Interlude Book",
+  "expectedChapterCount": 7,
+  "expectedChapterTitles": [
+    "Chapter 1: First",
+    "Interlude",
+    "Chapter 2: Second",
+    "Chapter 3: Third",
+    "Interlude",
+    "Chapter 4: Fourth",
+    "Chapter 5: Fifth"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 21,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 14,
+  "expectedActionableCount": 14,
+  "expectedVocabularyCount": 14,
+  "expectedQuoteCount": 7,
+  "expectedAICalls": 8
+}

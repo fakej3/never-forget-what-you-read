@@ -1,0 +1,23 @@
+{
+  "bookSlug": "count-7",
+  "bookTitle": "7 Chapter Book",
+  "expectedChapterCount": 7,
+  "expectedChapterTitles": [
+    "Chapter 1: Introduction",
+    "Chapter 2: The Foundation",
+    "Chapter 3: Building Blocks",
+    "Chapter 4: Advanced Concepts",
+    "Chapter 5: Applied Methods",
+    "Chapter 6: Critical Analysis",
+    "Chapter 7: Synthesis"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "standard",
+  "expectedPages": 28,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 14,
+  "expectedActionableCount": 14,
+  "expectedVocabularyCount": 14,
+  "expectedQuoteCount": 7,
+  "expectedAICalls": 8
+}

@@ -1,0 +1,26 @@
+{
+  "bookSlug": "foreword-preface-8",
+  "bookTitle": "Foreword Preface Book",
+  "expectedChapterCount": 10,
+  "expectedChapterTitles": [
+    "Foreword",
+    "Preface",
+    "Chapter 1: The Start",
+    "Chapter 2: Progress",
+    "Chapter 3: Midpoint",
+    "Chapter 4: Challenge",
+    "Chapter 5: Breakthrough",
+    "Chapter 6: Mastery",
+    "Chapter 7: Application",
+    "Chapter 8: Legacy"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 30,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 11
+}

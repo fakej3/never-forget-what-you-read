@@ -1,0 +1,24 @@
+{
+  "bookSlug": "roman-8",
+  "bookTitle": "Roman 8 Chapters",
+  "expectedChapterCount": 8,
+  "expectedChapterTitles": [
+    "I. Chapter Title 1",
+    "II. Chapter Title 2",
+    "III. Chapter Title 3",
+    "IV. Chapter Title 4",
+    "V. Chapter Title 5",
+    "VI. Chapter Title 6",
+    "VII. Chapter Title 7",
+    "VIII. Chapter Title 8"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "roman",
+  "expectedPages": 24,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 16,
+  "expectedQuoteCount": 8,
+  "expectedAICalls": 9
+}

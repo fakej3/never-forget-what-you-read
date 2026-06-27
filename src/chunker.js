@@ -2,10 +2,8 @@
 //
 // Detection order:
 //   A. PDF outline (TOC) — most reliable when present
-//   B. Numbered sequence — finds Chapter 1..N / Part 1..N with sequence validation;
-//      collapses front/back matter into adjacent chapters → exact chapter count
-//   C. Pattern + ALL-CAPS scoring — unnumbered books (T&GR, descriptive titles)
-//   D. N-page sections — last resort
+//   B. Scoring engine — rich per-line features + keyword patterns
+//   C. N-page sections — last resort
 
 // ── Number conversion utilities ────────────────────────────────────────────────
 
@@ -307,13 +305,6 @@ function detectFromPatterns(pages) {
 /**
  * From the pattern-detected chapter list, attempt to isolate a clean numbered
  * sequence (Chapter 1..N, Part 1..N, etc.).
- *
- * When a clean sequence covers ≥ SEQ_MIN_COVERAGE of all detected headings:
- *   - Keep only the numbered chapters as the primary structure
- *   - Merge content before the first numbered chapter into that chapter
- *   - Merge content after the last numbered chapter into that chapter
- *
- * Returns the refined chapter list or null if no clean sequence found.
  */
 function extractNumberedSequence(patternChapters, pages) {
   if (patternChapters.length < 2) return null;
@@ -409,6 +400,21 @@ function chapterQuality(chapters, totalPages) {
   return (densityScore * 0.7) + (varietyScore * 0.3);
 }
 
+// ── Sanity check ─────────────────────────────────────────────────────────────
+
+function sanityCheck(chapters, totalPages) {
+  if (!chapters || chapters.length === 0) return false;
+  const avg = totalPages / chapters.length;
+  if (avg < 1.5) return false; // too dense
+  if (chapters.length === 1 && totalPages > 30) return false; // single chapter for big book
+  // > 40% duplicate titles
+  const titleCounts = new Map();
+  for (const ch of chapters) titleCounts.set(ch.title, (titleCounts.get(ch.title) || 0) + 1);
+  const dupCount = [...titleCounts.values()].filter(n => n > 1).reduce((a, b) => a + b, 0);
+  if (dupCount / chapters.length > 0.4) return false;
+  return true;
+}
+
 // ── Diagnostics ───────────────────────────────────────────────────────────────
 
 function makeDiagnostics(chapters, strategy, totalPages) {
@@ -427,20 +433,409 @@ function makeDiagnostics(chapters, strategy, totalPages) {
   return { strategy, detectedChapters: chapters.length, avgPagesPerChapter: avg, minPages: min, maxPages: max, warnings };
 }
 
+// ── Scoring engine ────────────────────────────────────────────────────────────
+
+/**
+ * Build context from pages for the scoring engine.
+ */
+function buildContext(pages) {
+  // Compute medianFontSize from all line font sizes
+  const allFontSizes = [];
+  let hasRich = false;
+  for (const page of pages) {
+    if (page.lines && page.lines.length > 0) {
+      hasRich = true;
+      for (const line of page.lines) {
+        if (line.fontSize > 0) allFontSizes.push(line.fontSize);
+      }
+    }
+  }
+
+  let medianFontSize = 12;
+  if (allFontSizes.length > 0) {
+    allFontSizes.sort((a, b) => a - b);
+    const mid = Math.floor(allFontSizes.length / 2);
+    medianFontSize = allFontSizes.length % 2 === 0
+      ? (allFontSizes[mid - 1] + allFontSizes[mid]) / 2
+      : allFontSizes[mid];
+  }
+
+  // Get page dimensions from first page that has them
+  let pageWidth = 612, pageHeight = 792;
+  for (const page of pages) {
+    if (page.width && page.height) {
+      pageWidth = page.width;
+      pageHeight = page.height;
+      break;
+    }
+  }
+
+  // Build runningHeaders: lines appearing on >= max(3, pages.length * 0.20) pages
+  const lineFreq = new Map();
+  for (const page of pages) {
+    const lines = page.text.split('\n').map(l => l.trim())
+      .filter(l => l.length > 1 && l.length < 120);
+    const candidates = new Set([...lines.slice(0, 3), ...lines.slice(-2)]);
+    for (const line of candidates) {
+      lineFreq.set(line, (lineFreq.get(line) || 0) + 1);
+    }
+  }
+  const runningHeaderThreshold = Math.max(3, pages.length * 0.20);
+  const runningHeaders = new Set();
+  for (const [line, count] of lineFreq) {
+    if (count >= runningHeaderThreshold) runningHeaders.add(line);
+  }
+
+  // Build everyPageLines: lines appearing on >= 60% of pages
+  const everyPageLines = new Set();
+  const everyPageThreshold = pages.length * 0.60;
+  for (const [line, count] of lineFreq) {
+    if (count >= everyPageThreshold) everyPageLines.add(line);
+  }
+
+  return { medianFontSize, pageWidth, pageHeight, runningHeaders, everyPageLines, hasRich };
+}
+
+/**
+ * Score a single line for likelihood of being a chapter heading.
+ * Returns { score, reasons }
+ */
+function scoreLine(text, lineOpts, ctx) {
+  const {
+    y = 0, fontSize = 0, bold = false, italic = false,
+    x = 0, lineWidth = 0, lineIndex = 0, pageWordCount = 0,
+    gapAbove = 0, gapBelow = 0,
+    pageHeight = ctx.pageHeight || 792,
+    pageWidth  = ctx.pageWidth  || 612,
+  } = lineOpts;
+
+  let score = 0;
+  const reasons = [];
+
+  // CHAPTER_KEYWORD: +50
+  for (const pat of HEADING_PATTERNS) {
+    if (pat.test(text)) {
+      score += 50;
+      reasons.push('CHAPTER_KEYWORD');
+      break;
+    }
+  }
+
+  // Font size scoring (exclusive)
+  if (fontSize > 0 && ctx.medianFontSize > 0) {
+    const ratio = fontSize / ctx.medianFontSize;
+    if (ratio >= 1.5) {
+      score += 25; reasons.push('LARGE_FONT_BIG');
+    } else if (ratio >= 1.25) {
+      score += 20; reasons.push('LARGE_FONT');
+    } else if (ratio >= 1.1) {
+      score += 8; reasons.push('LARGE_FONT_SMALL');
+    }
+  }
+
+  // BOLD: +12
+  if (bold) { score += 12; reasons.push('BOLD'); }
+
+  // CENTERED: +15  |lineCenter - pageCenter| < 60pt
+  const pageCenter = pageWidth / 2;
+  const lineCenter = x + lineWidth / 2;
+  if (lineWidth > 0 && Math.abs(lineCenter - pageCenter) < 60) {
+    score += 15; reasons.push('CENTERED');
+  }
+
+  // TOP_QUARTER: +15  y >= pageHeight * 0.75 (PDF coords: 0=bottom)
+  if (y >= pageHeight * 0.75) {
+    score += 15; reasons.push('TOP_QUARTER');
+  }
+
+  // WHITESPACE_ABOVE: +10
+  if (gapAbove >= 18) { score += 10; reasons.push('WHITESPACE_ABOVE'); }
+
+  // WHITESPACE_BELOW: +10
+  if (gapBelow >= 18) { score += 10; reasons.push('WHITESPACE_BELOW'); }
+
+  // SHORT_LINE: +8
+  const isShortLine = text.length < 60;
+  if (isShortLine) { score += 8; reasons.push('SHORT_LINE'); }
+
+  // ALL_CAPS: +10
+  const alphaChars = text.replace(/[^a-zA-Z]/g, '');
+  const upperChars = text.replace(/[^A-Z]/g, '');
+  const isAllCaps  = alphaChars.length >= 2 && upperChars.length / alphaChars.length >= 0.70;
+  if (isAllCaps) { score += 10; reasons.push('ALL_CAPS'); }
+
+  // STARTS_PAGE: +10
+  if (lineIndex === 0) { score += 10; reasons.push('STARTS_PAGE'); }
+
+  // SPARSE_PAGE: +15 (only when ALL_CAPS or SHORT_LINE applies)
+  if (pageWordCount < 200 && (isAllCaps || isShortLine)) {
+    score += 15; reasons.push('SPARSE_PAGE');
+  }
+
+  // ROMAN_NUMERAL: +12  matches /^[IVXLC]{1,6}\.\s+[A-Za-z]/
+  if (/^[IVXLC]{1,6}\.\s+[A-Za-z]/.test(text)) {
+    score += 12; reasons.push('ROMAN_NUMERAL');
+  }
+
+  // WORD_NUMBER: +8  starts with spelled-out number
+  if (/^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)/i.test(text)) {
+    score += 8; reasons.push('WORD_NUMBER');
+  }
+
+  // ISOLATED: +8  both gaps >= 18 AND text.length < 60
+  if (gapAbove >= 18 && gapBelow >= 18 && text.length < 60) {
+    score += 8; reasons.push('ISOLATED');
+  }
+
+  // ── Penalties ──
+
+  // RUNNING_HEADER: -40
+  if (ctx.runningHeaders.has(text)) {
+    score -= 40; reasons.push('RUNNING_HEADER');
+  }
+
+  // EVERY_PAGE: -60
+  if (ctx.everyPageLines.has(text)) {
+    score -= 60; reasons.push('EVERY_PAGE');
+  }
+
+  // LOWERCASE_START: -30
+  if (/^[a-z]/.test(text)) {
+    score -= 30; reasons.push('LOWERCASE_START');
+  }
+
+  // PROSE_LENGTH: -25
+  if (text.length > 120) {
+    score -= 25; reasons.push('PROSE_LENGTH');
+  }
+
+  // BOTTOM_QUARTER: -20  y < pageHeight * 0.25 (PDF coords: 0=bottom)
+  if (y < pageHeight * 0.25) {
+    score -= 20; reasons.push('BOTTOM_QUARTER');
+  }
+
+  // Clamp to 0–100
+  score = Math.max(0, Math.min(100, score));
+
+  return { score, reasons };
+}
+
+/**
+ * Score all pages and collect chapter candidates.
+ */
+function scorePages(pages, ctx, threshold = 40) {
+  const candidates = [];
+
+  for (const page of pages) {
+    const pageWordCount = page.text.split(/\s+/).filter(Boolean).length;
+    let pageLines;
+
+    if (page.lines && page.lines.length > 0) {
+      // Rich mode: use actual line data
+      pageLines = page.lines;
+    } else {
+      // Text-only mode: reconstruct pseudo-lines
+      const textLines = page.text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      pageLines = textLines.map((text, idx) => ({
+        text,
+        y:         792 - idx * 12,   // simulate top-of-page ordering
+        x:         0,
+        lineWidth: 0,
+        fontSize:  ctx.medianFontSize,
+        bold:      false,
+        italic:    false,
+      }));
+    }
+
+    const limit = Math.min(SCAN_LINES, pageLines.length);
+
+    // Pass 0: multi-line headings check (first 12 lines)
+    let pass0Found = false;
+    for (let i = 0; i < Math.min(limit, pageLines.length - 1); i++) {
+      const lineText = pageLines[i].text.trim();
+      if (ctx.runningHeaders.has(lineText)) continue;
+      if (/^(chapter|part)$/i.test(lineText)) {
+        const next = pageLines[i + 1];
+        if (next && !ctx.runningHeaders.has(next.text.trim()) && WORD_NUMBERS_RE.test(next.text.trim())) {
+          const titleLine = pageLines[i + 2];
+          const title = titleLine && !ctx.runningHeaders.has(titleLine.text.trim())
+            && !WORD_NUMBERS_RE.test(titleLine.text.trim()) && titleLine.text.length < 80
+            ? `${lineText} ${next.text.trim()} — ${titleLine.text.trim()}`
+            : `${lineText} ${next.text.trim()}`;
+          candidates.push({ pageNum: page.pageNum, title, score: 85, reasons: ['MULTI_LINE_HEADING'] });
+          pass0Found = true;
+          break;
+        }
+      }
+    }
+    if (pass0Found) continue;
+
+    // Pass 1: score first 12 lines
+    let bestScore = -1;
+    let bestCandidate = null;
+
+    for (let i = 0; i < limit; i++) {
+      const lineObj = pageLines[i];
+      const lineText = lineObj.text.trim();
+      if (!lineText || lineText.length < 2 || lineText.length > 120) continue;
+      if (/^\d+$/.test(lineText)) continue; // bare page numbers
+
+      // Compute gaps between lines
+      const prevLine = i > 0 ? pageLines[i - 1] : null;
+      const nextLine = i < pageLines.length - 1 ? pageLines[i + 1] : null;
+      const gapAbove = prevLine ? Math.abs(lineObj.y - prevLine.y) - (lineObj.fontSize || 12) : 30;
+      const gapBelow = nextLine ? Math.abs(nextLine.y - lineObj.y) - (lineObj.fontSize || 12) : 30;
+
+      const lineOpts = {
+        y:             lineObj.y,
+        fontSize:      lineObj.fontSize || ctx.medianFontSize,
+        bold:          lineObj.bold || false,
+        italic:        lineObj.italic || false,
+        x:             lineObj.x || 0,
+        lineWidth:     lineObj.lineWidth || 0,
+        lineIndex:     i,
+        pageWordCount,
+        gapAbove:      Math.max(0, gapAbove),
+        gapBelow:      Math.max(0, gapBelow),
+        pageHeight:    ctx.pageHeight,
+        pageWidth:     ctx.pageWidth,
+      };
+
+      const { score, reasons } = scoreLine(lineText, lineOpts, ctx);
+
+      if (score >= threshold && score > bestScore) {
+        bestScore = score;
+        bestCandidate = { pageNum: page.pageNum, title: lineText, score, reasons };
+      }
+    }
+
+    if (bestCandidate) {
+      candidates.push(bestCandidate);
+      continue;
+    }
+
+    // Pass 2: sparse pages — check ALL-CAPS lines with lower bar
+    if (pageWordCount < 200) {
+      for (let i = 0; i < Math.min(8, pageLines.length); i++) {
+        const lineObj  = pageLines[i];
+        const lineText = lineObj.text.trim();
+        if (!lineText || /^\d+$/.test(lineText)) continue;
+
+        const alphaChars = lineText.replace(/[^a-zA-Z]/g, '');
+        const upperChars = lineText.replace(/[^A-Z]/g, '');
+        const isAllCapsLine = alphaChars.length >= 2 && upperChars.length / alphaChars.length >= 0.70;
+
+        if (isAllCapsLine && !ctx.runningHeaders.has(lineText) && !ctx.everyPageLines.has(lineText)) {
+          const prevLine = i > 0 ? pageLines[i - 1] : null;
+          const nextLine = i < pageLines.length - 1 ? pageLines[i + 1] : null;
+          const gapAbove = prevLine ? Math.abs(lineObj.y - prevLine.y) - (lineObj.fontSize || 12) : 30;
+          const gapBelow = nextLine ? Math.abs(nextLine.y - lineObj.y) - (lineObj.fontSize || 12) : 30;
+
+          const lineOpts = {
+            y: lineObj.y, fontSize: lineObj.fontSize || ctx.medianFontSize,
+            bold: lineObj.bold || false, italic: lineObj.italic || false,
+            x: lineObj.x || 0, lineWidth: lineObj.lineWidth || 0,
+            lineIndex: i, pageWordCount,
+            gapAbove: Math.max(0, gapAbove), gapBelow: Math.max(0, gapBelow),
+            pageHeight: ctx.pageHeight, pageWidth: ctx.pageWidth,
+          };
+          const { score, reasons } = scoreLine(lineText, lineOpts, ctx);
+          if (score >= 25) {
+            candidates.push({ pageNum: page.pageNum, title: lineText, score, reasons });
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return candidates;
+}
+
+/**
+ * Build chapter list from scored candidates.
+ */
+function buildChaptersFromCandidates(candidates, pages) {
+  if (candidates.length === 0) return [];
+
+  const chapters = [];
+  let frontMatter = [];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const cand = candidates[i];
+    const nextCand = candidates[i + 1];
+    const startPage = cand.pageNum;
+    const endPage   = nextCand ? nextCand.pageNum - 1 : pages[pages.length - 1].pageNum;
+    const chPages   = pages.filter(p => p.pageNum >= startPage && p.pageNum <= endPage);
+
+    if (chPages.length === 0) continue;
+    chapters.push({
+      title:     cand.title,
+      pages:     chPages,
+      pageStart: startPage,
+      pageEnd:   chPages[chPages.length - 1].pageNum,
+      _score:    cand.score,
+    });
+  }
+
+  // Merge front-matter (pages before first candidate) into first chapter
+  if (chapters.length > 0 && candidates[0].pageNum > pages[0].pageNum) {
+    const firstCandPage = candidates[0].pageNum;
+    const prePages = pages.filter(p => p.pageNum < firstCandPage);
+    if (prePages.length > 0) {
+      chapters[0] = {
+        ...chapters[0],
+        pages:     [...prePages, ...chapters[0].pages],
+        pageStart: prePages[0].pageNum,
+      };
+    }
+  }
+
+  return chapters.map(({ _score, ...ch }) => ({
+    ...ch,
+    pageEnd: ch.pages[ch.pages.length - 1]?.pageNum ?? ch.pageStart,
+  }));
+}
+
+/**
+ * Smart structural fallback: dense page followed by sparse page with short capitalized first line.
+ */
+function smartStructuralFallback(pages) {
+  const breaks = [];
+
+  for (let i = 1; i < pages.length; i++) {
+    const prevPage = pages[i - 1];
+    const currPage = pages[i];
+    const prevWords = prevPage.text.split(/\s+/).filter(Boolean).length;
+    const currWords = currPage.text.split(/\s+/).filter(Boolean).length;
+
+    if (prevWords > 80 && currWords < 60) {
+      // Check if first non-empty line of current page is short and capitalized
+      const firstLine = currPage.text.split('\n').map(l => l.trim()).find(l => l.length > 0);
+      if (firstLine && /^[A-Z]/.test(firstLine) && firstLine.length < 60) {
+        breaks.push({ pageNum: currPage.pageNum, title: firstLine });
+      }
+    }
+  }
+
+  if (breaks.length < 2) return null;
+  return buildChaptersFromCandidates(breaks, pages);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Detect chapters using strategies in priority order:
  *   A. PDF outline (TOC)
- *   B. Numbered sequence (Chapter 1..N with sequence validation)
- *   C. Pattern matching (all headings, unnumbered books)
- *   D. N-page sections fallback
+ *   B. Scoring engine (rich features + keyword patterns)
+ *   C. N-page sections fallback
  *
- * @param {Array}  pages   - [{ pageNum, text }]
+ * @param {Array}  pages   - [{ pageNum, text }] or [{ pageNum, text, width, height, lines }]
  * @param {Array}  outline - [{ title, pageNum }] from PDF.js getOutline(), or []
+ * @param {Object} opts    - { debug: boolean }
  * @returns Array of chapter objects: { title, pages, pageStart, pageEnd, _diagnostics? }
  */
-export function detectChapters(pages, outline = []) {
+export function detectChapters(pages, outline = [], opts = {}) {
   if (!pages || pages.length === 0) return [];
 
   // Strategy A: PDF outline
@@ -448,37 +843,169 @@ export function detectChapters(pages, outline = []) {
     const result = detectFromOutline(pages, outline);
     if (result) {
       result._diagnostics = makeDiagnostics(result, 'pdf-outline', pages.length);
+      if (opts.debug) {
+        result._debug = {
+          strategy: 'pdf-outline',
+          richFeatures: false,
+          medianFontSize: 12,
+          runningHeaders: [],
+          allCandidates: [],
+          rejectedCandidates: [],
+        };
+      }
       return result;
     }
   }
 
-  // Strategy B: Pattern detection + numbered-sequence extraction
+  // Build scoring context
+  const ctx = buildContext(pages);
+
+  // Stage 3: Score all pages and collect candidates
+  const allCandidates = scorePages(pages, ctx, 40);
+  const rejectedCandidates = [];
+
+  // Try scoring-based approach
+  if (allCandidates.length >= 2) {
+    // Build chapter list from candidates
+    const scoredChapters = buildChaptersFromCandidates(allCandidates, pages);
+
+    if (scoredChapters.length >= 2) {
+      // Try numbered sequence from scored results
+      const seqResult = extractNumberedSequence(scoredChapters, pages);
+      if (seqResult && seqResult.length >= 2) {
+        const q = chapterQuality(seqResult, pages.length);
+        if (q >= 0.35 && sanityCheck(seqResult, pages.length)) {
+          seqResult._diagnostics = makeDiagnostics(seqResult, 'numbered-sequence', pages.length);
+          if (opts.debug) {
+            seqResult._debug = {
+              strategy: 'numbered-sequence',
+              richFeatures: ctx.hasRich,
+              medianFontSize: ctx.medianFontSize,
+              runningHeaders: [...ctx.runningHeaders],
+              allCandidates,
+              rejectedCandidates,
+            };
+          }
+          return seqResult;
+        }
+      }
+
+      // Try raw scored chapters
+      const q = chapterQuality(scoredChapters, pages.length);
+      if (q >= 0.25 && sanityCheck(scoredChapters, pages.length)) {
+        scoredChapters._diagnostics = makeDiagnostics(scoredChapters, 'scoring', pages.length);
+        if (opts.debug) {
+          scoredChapters._debug = {
+            strategy: 'scoring',
+            richFeatures: ctx.hasRich,
+            medianFontSize: ctx.medianFontSize,
+            runningHeaders: [...ctx.runningHeaders],
+            allCandidates,
+            rejectedCandidates,
+          };
+        }
+        return scoredChapters;
+      }
+    }
+
+    // Retry with relaxed threshold (threshold - 15 = 25)
+    const relaxedCandidates = scorePages(pages, ctx, 25);
+    if (relaxedCandidates.length >= 2) {
+      const relaxedChapters = buildChaptersFromCandidates(relaxedCandidates, pages);
+      if (relaxedChapters.length >= 2) {
+        const qr = chapterQuality(relaxedChapters, pages.length);
+        if (qr >= 0.25 && sanityCheck(relaxedChapters, pages.length)) {
+          relaxedChapters._diagnostics = makeDiagnostics(relaxedChapters, 'scoring', pages.length);
+          if (opts.debug) {
+            relaxedChapters._debug = {
+              strategy: 'scoring',
+              richFeatures: ctx.hasRich,
+              medianFontSize: ctx.medianFontSize,
+              runningHeaders: [...ctx.runningHeaders],
+              allCandidates: relaxedCandidates,
+              rejectedCandidates,
+            };
+          }
+          return relaxedChapters;
+        }
+      }
+    }
+  }
+
+  // Fall back to old pattern detection for backward compat
   const patternResult = detectFromPatterns(pages);
 
   if (patternResult.length >= 2) {
-    // Try to refine to a clean numbered sequence (eliminates front/back matter inflation)
+    // Try to refine to a clean numbered sequence
     const seqResult = extractNumberedSequence(patternResult, pages);
     if (seqResult && seqResult.length >= 2) {
       const q = chapterQuality(seqResult, pages.length);
-      if (q >= 0.4) {
+      if (q >= 0.35 && sanityCheck(seqResult, pages.length)) {
         seqResult._diagnostics = makeDiagnostics(seqResult, 'numbered-sequence', pages.length);
+        if (opts.debug) {
+          seqResult._debug = {
+            strategy: 'numbered-sequence',
+            richFeatures: ctx.hasRich,
+            medianFontSize: ctx.medianFontSize,
+            runningHeaders: [...ctx.runningHeaders],
+            allCandidates,
+            rejectedCandidates,
+          };
+        }
         return seqResult;
       }
     }
     // Fall back to raw pattern result
     const q = chapterQuality(patternResult, pages.length);
-    if (q >= 0.3) {
+    if (q >= 0.25 && sanityCheck(patternResult, pages.length)) {
       patternResult._diagnostics = makeDiagnostics(patternResult, 'patterns', pages.length);
+      if (opts.debug) {
+        patternResult._debug = {
+          strategy: 'patterns',
+          richFeatures: ctx.hasRich,
+          medianFontSize: ctx.medianFontSize,
+          runningHeaders: [...ctx.runningHeaders],
+          allCandidates,
+          rejectedCandidates,
+        };
+      }
       return patternResult;
     }
   }
 
-  // Strategy C: N-page sections
+  // Stage 7: Smart structural fallback
+  const structResult = smartStructuralFallback(pages);
+  if (structResult && structResult.length >= 2) {
+    structResult._diagnostics = makeDiagnostics(structResult, 'structural-fallback', pages.length);
+    if (opts.debug) {
+      structResult._debug = {
+        strategy: 'structural-fallback',
+        richFeatures: ctx.hasRich,
+        medianFontSize: ctx.medianFontSize,
+        runningHeaders: [...ctx.runningHeaders],
+        allCandidates,
+        rejectedCandidates,
+      };
+    }
+    return structResult;
+  }
+
+  // Stage 8: N-page sections
   if (pages.length >= 20) {
     const targetSections = Math.min(20, Math.max(5, Math.floor(pages.length / 20)));
     const sectionSize    = Math.ceil(pages.length / targetSections);
     const sections       = createPageSections(pages, sectionSize);
     sections._diagnostics = makeDiagnostics(sections, 'n-page-sections', pages.length);
+    if (opts.debug) {
+      sections._debug = {
+        strategy: 'n-page-sections',
+        richFeatures: ctx.hasRich,
+        medianFontSize: ctx.medianFontSize,
+        runningHeaders: [...ctx.runningHeaders],
+        allCandidates,
+        rejectedCandidates,
+      };
+    }
     return sections;
   }
 
@@ -490,6 +1017,16 @@ export function detectChapters(pages, outline = []) {
     pageEnd:   pages[pages.length - 1]?.pageNum ?? pages.length,
   }];
   full._diagnostics = makeDiagnostics(full, 'single-section', pages.length);
+  if (opts.debug) {
+    full._debug = {
+      strategy: 'single-section',
+      richFeatures: ctx.hasRich,
+      medianFontSize: ctx.medianFontSize,
+      runningHeaders: [...ctx.runningHeaders],
+      allCandidates,
+      rejectedCandidates,
+    };
+  }
   return full;
 }
 

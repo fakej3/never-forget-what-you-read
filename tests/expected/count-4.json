@@ -1,6 +1,6 @@
 {
-  "bookSlug": "large-paragraph-book",
-  "bookTitle": "The Large Paragraph Book",
+  "bookSlug": "count-4",
+  "bookTitle": "4 Chapter Book",
   "expectedChapterCount": 4,
   "expectedChapterTitles": [
     "Chapter 1: Introduction",

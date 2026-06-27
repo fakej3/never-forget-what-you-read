@@ -1,0 +1,22 @@
+{
+  "bookSlug": "chapter-colon-6",
+  "bookTitle": "Chapter Colon 6",
+  "expectedChapterCount": 6,
+  "expectedChapterTitles": [
+    "Chapter 1: Dawn",
+    "Chapter 2: Noon",
+    "Chapter 3: Dusk",
+    "Chapter 4: Night",
+    "Chapter 5: Morning",
+    "Chapter 6: Twilight"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "standard",
+  "expectedPages": 24,
+  "expectedConceptCount": 18,
+  "expectedPrincipleCount": 12,
+  "expectedActionableCount": 12,
+  "expectedVocabularyCount": 12,
+  "expectedQuoteCount": 6,
+  "expectedAICalls": 7
+}

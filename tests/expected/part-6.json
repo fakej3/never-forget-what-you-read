@@ -1,0 +1,22 @@
+{
+  "bookSlug": "part-6",
+  "bookTitle": "Part 6 Chapters",
+  "expectedChapterCount": 6,
+  "expectedChapterTitles": [
+    "Part 1: Development",
+    "Part 2: Integration",
+    "Part 3: Application",
+    "Part 4: Mastery",
+    "Part 5: Review",
+    "Part 6: Synthesis"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 18,
+  "expectedConceptCount": 18,
+  "expectedPrincipleCount": 12,
+  "expectedActionableCount": 12,
+  "expectedVocabularyCount": 12,
+  "expectedQuoteCount": 6,
+  "expectedAICalls": 7
+}

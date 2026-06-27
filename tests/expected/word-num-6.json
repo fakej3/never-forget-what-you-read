@@ -1,0 +1,22 @@
+{
+  "bookSlug": "word-num-6",
+  "bookTitle": "Word Num 6",
+  "expectedChapterCount": 6,
+  "expectedChapterTitles": [
+    "Chapter One: Introduction",
+    "Chapter Two: The Foundation",
+    "Chapter Three: Building Blocks",
+    "Chapter Four: Advanced Concepts",
+    "Chapter Five: Applied Methods",
+    "Chapter Six: Critical Analysis"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "word-number",
+  "expectedPages": 18,
+  "expectedConceptCount": 18,
+  "expectedPrincipleCount": 12,
+  "expectedActionableCount": 12,
+  "expectedVocabularyCount": 12,
+  "expectedQuoteCount": 6,
+  "expectedAICalls": 7
+}

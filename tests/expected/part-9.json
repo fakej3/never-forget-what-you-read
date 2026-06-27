@@ -1,0 +1,25 @@
+{
+  "bookSlug": "part-9",
+  "bookTitle": "Part 9 Chapters",
+  "expectedChapterCount": 9,
+  "expectedChapterTitles": [
+    "Part 1: Development",
+    "Part 2: Integration",
+    "Part 3: Application",
+    "Part 4: Mastery",
+    "Part 5: Review",
+    "Part 6: Synthesis",
+    "Part 7: Conclusion",
+    "Part 8: Extension",
+    "Part 9: Legacy"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 18,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 18,
+  "expectedQuoteCount": 9,
+  "expectedAICalls": 10
+}

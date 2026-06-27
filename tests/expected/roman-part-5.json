@@ -1,0 +1,21 @@
+{
+  "bookSlug": "roman-part-5",
+  "bookTitle": "Roman Part 5",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "I. Chapter Title 1",
+    "II. Chapter Title 2",
+    "III. Chapter Title 3",
+    "IV. Chapter Title 4",
+    "V. Chapter Title 5"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "roman",
+  "expectedPages": 20,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

@@ -1,16 +1,16 @@
 {
-  "bookSlug": "bullet-list-book",
-  "bookTitle": "The Bullet List Book",
+  "bookSlug": "caps-heading-5",
+  "bookTitle": "Caps Heading 5",
   "expectedChapterCount": 5,
   "expectedChapterTitles": [
-    "Chapter 1: Introduction",
-    "Chapter 2: The Foundation",
-    "Chapter 3: Building Blocks",
-    "Chapter 4: Advanced Concepts",
-    "Chapter 5: Applied Methods"
+    "CHAPTER ONE — INTRODUCTION",
+    "CHAPTER TWO — THE CORE",
+    "CHAPTER THREE — THE MIDDLE",
+    "CHAPTER FOUR — ADVANCED",
+    "CHAPTER FIVE — CONCLUSION"
   ],
   "detectionStrategy": "patterns",
-  "headingFormat": "standard",
+  "headingFormat": "self-help",
   "expectedPages": 15,
   "expectedConceptCount": 15,
   "expectedPrincipleCount": 10,

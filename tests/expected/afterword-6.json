@@ -1,0 +1,23 @@
+{
+  "bookSlug": "afterword-6",
+  "bookTitle": "Afterword Book",
+  "expectedChapterCount": 7,
+  "expectedChapterTitles": [
+    "Chapter 1: Beginning",
+    "Chapter 2: Development",
+    "Chapter 3: Middle",
+    "Chapter 4: Turn",
+    "Chapter 5: Resolution",
+    "Chapter 6: End",
+    "Afterword"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "standard",
+  "expectedPages": 21,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 14,
+  "expectedActionableCount": 14,
+  "expectedVocabularyCount": 14,
+  "expectedQuoteCount": 7,
+  "expectedAICalls": 8
+}

@@ -1,6 +1,6 @@
 {
-  "bookSlug": "vocabulary-heavy-book",
-  "bookTitle": "The Vocabulary Heavy Book",
+  "bookSlug": "count-8",
+  "bookTitle": "8 Chapter Book",
   "expectedChapterCount": 8,
   "expectedChapterTitles": [
     "Chapter 1: Introduction",
@@ -12,7 +12,7 @@
     "Chapter 7: Synthesis",
     "Chapter 8: Conclusion"
   ],
-  "detectionStrategy": "patterns",
+  "detectionStrategy": "numbered-sequence",
   "headingFormat": "standard",
   "expectedPages": 24,
   "expectedConceptCount": 20,

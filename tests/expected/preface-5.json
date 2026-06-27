@@ -1,18 +1,18 @@
 {
-  "bookSlug": "quote-heavy-book",
-  "bookTitle": "The Quote Heavy Book",
+  "bookSlug": "preface-5",
+  "bookTitle": "Preface 5 Chapters",
   "expectedChapterCount": 6,
   "expectedChapterTitles": [
-    "Chapter 1: Introduction",
-    "Chapter 2: The Foundation",
-    "Chapter 3: Building Blocks",
-    "Chapter 4: Advanced Concepts",
-    "Chapter 5: Applied Methods",
-    "Chapter 6: Critical Analysis"
+    "Preface",
+    "Chapter 1: One",
+    "Chapter 2: Two",
+    "Chapter 3: Three",
+    "Chapter 4: Four",
+    "Chapter 5: Five"
   ],
   "detectionStrategy": "patterns",
   "headingFormat": "standard",
-  "expectedPages": 18,
+  "expectedPages": 24,
   "expectedConceptCount": 18,
   "expectedPrincipleCount": 12,
   "expectedActionableCount": 12,

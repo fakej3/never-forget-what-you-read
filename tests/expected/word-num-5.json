@@ -1,0 +1,21 @@
+{
+  "bookSlug": "word-num-5",
+  "bookTitle": "Word Number 5 Chapters",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "Chapter One: Introduction",
+    "Chapter Two: The Foundation",
+    "Chapter Three: Building Blocks",
+    "Chapter Four: Advanced Concepts",
+    "Chapter Five: Applied Methods"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "word-number",
+  "expectedPages": 15,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}

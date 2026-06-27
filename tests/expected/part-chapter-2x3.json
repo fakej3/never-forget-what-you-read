@@ -1,0 +1,22 @@
+{
+  "bookSlug": "part-chapter-2x3",
+  "bookTitle": "Parts and Chapters 2x3",
+  "expectedChapterCount": 6,
+  "expectedChapterTitles": [
+    "Part 1: The Foundation",
+    "Part 2: The Development",
+    "Part 3: The Climax",
+    "Part 4: Resolution",
+    "Part 5: Legacy",
+    "Part 6: Epilogue"
+  ],
+  "detectionStrategy": "patterns",
+  "headingFormat": "part",
+  "expectedPages": 24,
+  "expectedConceptCount": 18,
+  "expectedPrincipleCount": 12,
+  "expectedActionableCount": 12,
+  "expectedVocabularyCount": 12,
+  "expectedQuoteCount": 6,
+  "expectedAICalls": 7
+}

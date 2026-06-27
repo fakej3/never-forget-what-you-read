@@ -1,14 +1,14 @@
 {
-  "bookSlug": "quote-heavy-book",
-  "bookTitle": "The Quote Heavy Book",
+  "bookSlug": "bibliography-5",
+  "bookTitle": "Bibliography Book",
   "expectedChapterCount": 6,
   "expectedChapterTitles": [
-    "Chapter 1: Introduction",
-    "Chapter 2: The Foundation",
-    "Chapter 3: Building Blocks",
-    "Chapter 4: Advanced Concepts",
-    "Chapter 5: Applied Methods",
-    "Chapter 6: Critical Analysis"
+    "Chapter 1: Research",
+    "Chapter 2: Methods",
+    "Chapter 3: Results",
+    "Chapter 4: Discussion",
+    "Chapter 5: Conclusion",
+    "Bibliography"
   ],
   "detectionStrategy": "patterns",
   "headingFormat": "standard",

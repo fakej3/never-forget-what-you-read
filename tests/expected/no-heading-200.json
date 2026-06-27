@@ -1,0 +1,16 @@
+{
+  "bookSlug": "no-heading-200",
+  "bookTitle": "No Heading 200 Pages",
+  "expectedChapterCount": 10,
+  "expectedChapterTitles": [],
+  "detectionStrategy": "n-page",
+  "headingFormat": "none",
+  "expectedPages": 200,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 15,
+  "expectedActionableCount": 15,
+  "expectedVocabularyCount": 20,
+  "expectedQuoteCount": 10,
+  "expectedAICalls": 11,
+  "expectedSectionCount": 10
+}

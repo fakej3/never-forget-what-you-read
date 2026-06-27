@@ -1,0 +1,23 @@
+{
+  "bookSlug": "part-7",
+  "bookTitle": "Part 7 Chapters",
+  "expectedChapterCount": 7,
+  "expectedChapterTitles": [
+    "Part 1: Development",
+    "Part 2: Integration",
+    "Part 3: Application",
+    "Part 4: Mastery",
+    "Part 5: Review",
+    "Part 6: Synthesis",
+    "Part 7: Conclusion"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 21,
+  "expectedConceptCount": 20,
+  "expectedPrincipleCount": 14,
+  "expectedActionableCount": 14,
+  "expectedVocabularyCount": 14,
+  "expectedQuoteCount": 7,
+  "expectedAICalls": 8
+}

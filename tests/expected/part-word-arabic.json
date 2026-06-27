@@ -1,0 +1,21 @@
+{
+  "bookSlug": "part-word-arabic",
+  "bookTitle": "Parts Word Arabic",
+  "expectedChapterCount": 5,
+  "expectedChapterTitles": [
+    "Part One: Opening",
+    "Part Two: Rising",
+    "Part Three: Turning",
+    "Part Four: Falling",
+    "Part Five: Closing"
+  ],
+  "detectionStrategy": "numbered-sequence",
+  "headingFormat": "part",
+  "expectedPages": 20,
+  "expectedConceptCount": 15,
+  "expectedPrincipleCount": 10,
+  "expectedActionableCount": 10,
+  "expectedVocabularyCount": 10,
+  "expectedQuoteCount": 5,
+  "expectedAICalls": 6
+}
