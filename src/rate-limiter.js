@@ -52,6 +52,13 @@ class RateLimiter {
   markEnd() {
     this._lastCallEnd = Date.now();
   }
+
+  /** Reset all counters — developer tool only. */
+  reset() {
+    this._timestamps   = [];
+    this._lastCallEnd  = 0;
+    this._sessionTotal = 0;
+  }
 }
 
 export const rateLimiter = new RateLimiter();

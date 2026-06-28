@@ -441,6 +441,41 @@ select option { background: var(--surface-2); }
 }
 .provider-note.visible { display: block; }
 
+/* ─── Developer Tools Section ───────────────────────────────────────────────── */
+.dev-tools-section {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+.dev-tools-toggle {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.dev-tools-toggle::-webkit-details-marker { display: none; }
+.dev-tools-toggle::before {
+  content: '▸';
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+}
+details[open] .dev-tools-toggle::before { transform: rotate(90deg); }
+.dev-tools-body {
+  margin-top: 0.75rem;
+}
+.dev-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
 /* ─── Book Detail ───────────────────────────────────────────────────────────── */
 .book-detail {
   min-height: 100vh;

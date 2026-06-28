@@ -5,6 +5,7 @@ import { createProvider } from './providers/base.js';
 import { PDFUploader }    from './uploader.js';
 import { Pipeline }       from './pipeline.js';
 import { UI }             from './ui.js';
+import { rateLimiter }    from './rate-limiter.js';
 
 // Register all providers
 import './providers/gemini.js';
@@ -15,6 +16,7 @@ import './providers/anthropic.js';
 
 let activePipeline = null;
 let activeUploader = null; // tracked so cancel works during extraction too
+let activeBookId   = null; // id of the book currently being processed
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -28,6 +30,7 @@ async function init() {
       ui.showError(`Unexpected error: ${err.message}`);
       activePipeline = null;
       activeUploader = null;
+      activeBookId   = null;
     }),
     onSettingsSaved:    ()       => {},
     onBookOpen:         (bookId) => ui.openBook(bookId).catch(err => {
@@ -42,7 +45,15 @@ async function init() {
       console.error('[app] handleResume failed:', err);
       ui.showError(`Resume failed: ${err.message}`);
     }),
+    onBookReprocess:    (bookId) => handleReprocess(ui, bookId).catch(err => {
+      console.error('[app] handleReprocess failed:', err);
+      ui.showError(`Reprocess failed: ${err.message}`);
+    }),
     onCancelProcessing: ()       => handleCancel(),
+    onDevTool:          (action, data) => handleDevTool(ui, action, data).catch(err => {
+      console.error(`[app] Dev tool "${action}" failed:`, err);
+      ui.showError(`Developer tool failed: ${err.message}`);
+    }),
   });
 
   await ui.renderLibrary();
@@ -147,6 +158,7 @@ async function handleFile(ui, file) {
 
   // ── AI Pipeline ───────────────────────────────────────────────────────
   activePipeline = new Pipeline(provider, makePipelineCallback(ui));
+  activeBookId   = bookId;
 
   try {
     console.log('[app] Starting pipeline for bookId:', bookId, '| outline entries:', extractedData.outline?.length ?? 0);
@@ -182,6 +194,7 @@ async function handleFile(ui, file) {
     }
   } finally {
     activePipeline = null;
+    activeBookId   = null;
   }
 }
 
@@ -207,6 +220,7 @@ async function handleResume(ui, bookId) {
 
   const provider = createProvider(cfg.provider, cfg.apiKey, cfg.model);
   activePipeline = new Pipeline(provider, makePipelineCallback(ui));
+  activeBookId   = bookId;
 
   try {
     await activePipeline.resume(bookId);
@@ -238,13 +252,106 @@ async function handleResume(ui, bookId) {
     }
   } finally {
     activePipeline = null;
+    activeBookId   = null;
   }
 }
 
 async function handleDelete(ui, bookId) {
+  // Cancel the pipeline first if this exact book is being processed
+  if (activeBookId === bookId) {
+    handleCancel();
+    // Give the pipeline a moment to acknowledge cancellation before wiping storage
+    await new Promise(r => setTimeout(r, 100));
+  }
   await Storage.deleteBookAll(bookId);
   ui.showLibrary();
   await ui.renderLibrary();
+}
+
+async function handleReprocess(ui, bookId) {
+  if (activePipeline || activeUploader) {
+    ui.showError('A book is already being processed. Please wait or cancel it first.');
+    return;
+  }
+
+  const cfg = await ui.getProviderConfig();
+  if (!cfg.apiKey) {
+    ui.showError('Please configure your API key before reprocessing.');
+    ui.openSettings();
+    return;
+  }
+
+  const book = await Storage.getBook(bookId).catch(() => null);
+  if (!book) { ui.showError('Book not found.'); return; }
+
+  // Wipe all AI results and reset to extracted state
+  await Storage.resetChaptersForReprocess(bookId);
+  await Storage.deleteKnowledge(bookId);
+  await Storage.saveBook({ ...book, status: 'extracted', summary: null });
+
+  ui.showLibrary();
+  await ui.renderLibrary();
+  await handleResume(ui, bookId);
+}
+
+async function handleDevTool(ui, action, data) {
+  switch (action) {
+    case 'clearAllBooks': {
+      await Storage.clearAllBooks();
+      ui.closeSettings();
+      await ui.renderLibrary();
+      ui.showToast('All books cleared.');
+      break;
+    }
+    case 'clearAll': {
+      await Storage.clearAll();
+      ui.closeSettings();
+      ui.showToast('IndexedDB cleared. Reloading…');
+      setTimeout(() => location.reload(), 1200);
+      break;
+    }
+    case 'resetQueue': {
+      const books = await Storage.getAllBooks();
+      await Promise.all(
+        books
+          .filter(b => b.status === 'processing')
+          .map(b => Storage.saveBook({ ...b, status: 'extracted' }))
+      );
+      await ui.renderLibrary();
+      ui.showToast('Processing queue reset.');
+      break;
+    }
+    case 'resetApiStats': {
+      rateLimiter.reset();
+      ui.showToast('API statistics reset.');
+      break;
+    }
+    case 'exportDB': {
+      const exported = await Storage.exportAll();
+      const json     = JSON.stringify(exported, null, 2);
+      const blob     = new Blob([json], { type: 'application/json' });
+      const url      = URL.createObjectURL(blob);
+      const a        = document.createElement('a');
+      a.href         = url;
+      a.download     = `never-forget-export-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      ui.showToast('Export downloaded.');
+      break;
+    }
+    case 'importDB': {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      await Storage.importAll(parsed);
+      await ui.renderLibrary();
+      ui.showToast('Import complete.');
+      break;
+    }
+    default:
+      console.warn('[app] Unknown dev tool action:', action);
+  }
 }
 
 function handleCancel() {

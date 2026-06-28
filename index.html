@@ -40,6 +40,21 @@
         </div>
         <div class="provider-note" id="provider-note"></div>
         <button class="btn-primary" id="save-settings">Save Configuration</button>
+
+        <details class="dev-tools-section" id="dev-tools-section">
+          <summary class="dev-tools-toggle">Developer Tools</summary>
+          <div class="dev-tools-body">
+            <div class="dev-tools-grid">
+              <button class="btn-ghost btn-sm" id="dev-clear-books">Clear All Books</button>
+              <button class="btn-ghost btn-sm" id="dev-clear-idb">Clear IndexedDB</button>
+              <button class="btn-ghost btn-sm" id="dev-reset-queue">Reset Processing Queue</button>
+              <button class="btn-ghost btn-sm" id="dev-reset-api">Reset API Statistics</button>
+              <button class="btn-ghost btn-sm" id="dev-export-idb">Export IndexedDB (JSON)</button>
+              <button class="btn-ghost btn-sm" id="dev-import-idb">Import IndexedDB (JSON)</button>
+            </div>
+            <input type="file" id="dev-import-input" accept=".json" class="visually-hidden">
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -53,10 +68,46 @@
         <button class="icon-btn" id="close-delete">✕</button>
       </div>
       <div class="modal-body">
-        <p class="muted" style="margin-bottom:1.5rem;">This will permanently remove all extracted knowledge for this book. This cannot be undone.</p>
+        <p class="muted" style="margin-bottom:1.5rem;">Delete this book and all extracted knowledge? This cannot be undone.</p>
         <div class="row gap-sm">
           <button class="btn-ghost" id="cancel-delete">Cancel</button>
           <button class="btn-danger" id="confirm-delete">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reprocess Confirm Modal -->
+  <div id="reprocess-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--sm">
+      <div class="modal-header">
+        <h2>Reprocess Book</h2>
+        <button class="icon-btn" id="close-reprocess">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted" style="margin-bottom:1.5rem;">This will delete all AI-generated summaries and knowledge for this book and reanalyze it from scratch. The PDF does not need to be re-uploaded.</p>
+        <div class="row gap-sm">
+          <button class="btn-ghost" id="cancel-reprocess">Cancel</button>
+          <button class="btn-primary" id="confirm-reprocess">Reprocess</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Developer Tool Confirm Modal -->
+  <div id="dev-confirm-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box--sm">
+      <div class="modal-header">
+        <h2 id="dev-confirm-title">Confirm</h2>
+        <button class="icon-btn" id="close-dev-confirm">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted" id="dev-confirm-message" style="margin-bottom:1.5rem;"></p>
+        <div class="row gap-sm">
+          <button class="btn-ghost" id="cancel-dev-confirm">Cancel</button>
+          <button class="btn-danger" id="confirm-dev-action">Confirm</button>
         </div>
       </div>
     </div>
@@ -179,6 +230,7 @@
       <div class="detail-header">
         <button class="btn-ghost" id="back-to-library">← Back to Archive</button>
         <div class="detail-actions">
+          <button class="btn-ghost" id="reprocess-book">Reprocess</button>
           <button class="btn-ghost btn-danger-ghost" id="delete-book">Delete</button>
         </div>
       </div>

@@ -20,10 +20,12 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 export class UI {
   constructor(callbacks) {
-    this.cb             = callbacks;
-    this._deleteTarget  = null;
-    this._toastTimer    = null;
-    this._currentBookId = null;
+    this.cb               = callbacks;
+    this._deleteTarget    = null;
+    this._reprocessTarget = null;
+    this._confirmResolve  = null;
+    this._toastTimer      = null;
+    this._currentBookId   = null;
     this._bind();
   }
 
@@ -82,6 +84,50 @@ export class UI {
         this.cb.onBookDelete(this._deleteTarget);
         this.closeDeleteModal();
       }
+    });
+
+    // Reprocess (in detail view)
+    $('reprocess-book')?.addEventListener('click', () => this.openReprocessModal(this._currentBookId));
+    document.querySelector('#reprocess-modal .modal-backdrop')?.addEventListener('click', () => this.closeReprocessModal());
+    $('close-reprocess')?.addEventListener('click',  () => this.closeReprocessModal());
+    $('cancel-reprocess')?.addEventListener('click', () => this.closeReprocessModal());
+    $('confirm-reprocess')?.addEventListener('click', () => {
+      if (this._reprocessTarget) {
+        const id = this._reprocessTarget;
+        this.closeReprocessModal();
+        this.cb.onBookReprocess?.(id);
+      }
+    });
+
+    // Developer confirm modal
+    document.querySelector('#dev-confirm-modal .modal-backdrop')?.addEventListener('click', () => this._resolveDevConfirm(false));
+    $('close-dev-confirm')?.addEventListener('click',  () => this._resolveDevConfirm(false));
+    $('cancel-dev-confirm')?.addEventListener('click', () => this._resolveDevConfirm(false));
+    $('confirm-dev-action')?.addEventListener('click', () => this._resolveDevConfirm(true));
+
+    // Developer tools
+    $('dev-clear-books')?.addEventListener('click', () =>
+      this._devAction('Clear All Books', 'Delete all books and extracted knowledge? This cannot be undone.', () => this.cb.onDevTool?.('clearAllBooks'))
+    );
+    $('dev-clear-idb')?.addEventListener('click', () =>
+      this._devAction('Clear IndexedDB', 'Wipe all data including API key and settings? The page will reload.', () => this.cb.onDevTool?.('clearAll'))
+    );
+    $('dev-reset-queue')?.addEventListener('click', () =>
+      this._devAction('Reset Processing Queue', 'Reset all stuck \'processing\' books to \'ready to analyze\'?', () => this.cb.onDevTool?.('resetQueue'))
+    );
+    $('dev-reset-api')?.addEventListener('click', () =>
+      this._devAction('Reset API Statistics', 'Reset the in-memory rate-limiter counters for this session?', () => this.cb.onDevTool?.('resetApiStats'))
+    );
+    $('dev-export-idb')?.addEventListener('click', () =>
+      this._devAction('Export IndexedDB', 'Download all book data as a JSON file?', () => this.cb.onDevTool?.('exportDB'))
+    );
+    $('dev-import-idb')?.addEventListener('click', () => {
+      const input = $('dev-import-input');
+      if (input) { input.value = ''; input.click(); }
+    });
+    $('dev-import-input')?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) this.cb.onDevTool?.('importDB', file);
     });
   }
 
@@ -309,12 +355,16 @@ export class UI {
       ${book.summary ? `<p class="book-card-summary">${this._esc(book.summary)}</p>` : ''}
     `;
 
-    if (book.status === 'complete') {
-      card.addEventListener('click', () => this.cb.onBookOpen(book.id));
-    } else {
-      const actions = document.createElement('div');
-      actions.style.cssText = 'display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;';
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;';
 
+    if (book.status === 'complete') {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', e => {
+        if (e.target.closest('button')) return;
+        this.cb.onBookOpen(book.id);
+      });
+    } else {
       if ((book.status === 'extracted' || book.status === 'rate-limited') && this.cb.onBookResume) {
         const resumeBtn       = document.createElement('button');
         resumeBtn.className   = 'btn-ghost btn-sm btn-resume';
@@ -325,17 +375,17 @@ export class UI {
         });
         actions.appendChild(resumeBtn);
       }
-
-      const delBtn       = document.createElement('button');
-      delBtn.className   = 'btn-ghost btn-sm btn-danger-ghost';
-      delBtn.textContent = 'Remove';
-      delBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        this.openDeleteModal(book.id);
-      });
-      actions.appendChild(delBtn);
-      card.appendChild(actions);
     }
+
+    const delBtn       = document.createElement('button');
+    delBtn.className   = 'btn-ghost btn-sm btn-danger-ghost';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      this.openDeleteModal(book.id);
+    });
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
 
     return card;
   }
@@ -495,7 +545,7 @@ export class UI {
     });
   }
 
-  // ── Delete ─────────────────────────────────────────────────────────────
+  // ── Delete / Reprocess ────────────────────────────────────────────────
 
   openDeleteModal(bookId) {
     this._deleteTarget = bookId;
@@ -505,6 +555,33 @@ export class UI {
   closeDeleteModal() {
     this._deleteTarget = null;
     $('delete-modal')?.classList.add('hidden');
+  }
+
+  openReprocessModal(bookId) {
+    this._reprocessTarget = bookId;
+    $('reprocess-modal')?.classList.remove('hidden');
+  }
+
+  closeReprocessModal() {
+    this._reprocessTarget = null;
+    $('reprocess-modal')?.classList.add('hidden');
+  }
+
+  // ── Developer Confirm ─────────────────────────────────────────────────
+
+  _devAction(title, message, action) {
+    $('dev-confirm-title').textContent   = title;
+    $('dev-confirm-message').textContent = message;
+    $('dev-confirm-modal')?.classList.remove('hidden');
+    this._confirmResolve = async (ok) => {
+      $('dev-confirm-modal')?.classList.add('hidden');
+      this._confirmResolve = null;
+      if (ok) await action();
+    };
+  }
+
+  _resolveDevConfirm(ok) {
+    this._confirmResolve?.(ok);
   }
 
   // ── Toast ──────────────────────────────────────────────────────────────

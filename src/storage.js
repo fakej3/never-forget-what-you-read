@@ -160,4 +160,52 @@ export const Storage = {
       remove('knowledge', bookId),
     ]);
   },
+
+  // Reset all chapter AI results so the book can be reprocessed from scratch
+  resetChaptersForReprocess: async (bookId) => {
+    const chapters = await Storage.getChapters(bookId);
+    await Promise.all(chapters.map(ch =>
+      put('chapters', { ...ch, aiProcessed: false, summary: null, aiKnowledge: null })
+    ));
+  },
+
+  // Delete every book and all associated data; does not touch settings
+  clearAllBooks: async () => {
+    const books = await getAll('books');
+    await Promise.allSettled(books.map(b => Storage.deleteBookAll(b.id)));
+  },
+
+  // Wipe all stores including settings — developer nuclear option
+  clearAll: async () => {
+    await openDB();
+    await Promise.allSettled([
+      Storage.clearAllBooks(),
+      new Promise((resolve, reject) => {
+        const req = tx('settings', 'readwrite').clear();
+        req.onsuccess = () => resolve();
+        req.onerror   = () => reject(req.error);
+      }),
+    ]);
+  },
+
+  // Export all stores (except settings) as a plain object for download
+  exportAll: async () => {
+    const [books, chunks, chapters, knowledge] = await Promise.all([
+      getAll('books'),
+      getAll('chunks'),
+      getAll('chapters'),
+      getAll('knowledge'),
+    ]);
+    return { books, chunks, chapters, knowledge, exportedAt: Date.now() };
+  },
+
+  // Import records from a JSON export; merges into existing data (put overwrites by key)
+  importAll: async (data) => {
+    await openDB();
+    for (const storeName of ['books', 'chunks', 'chapters', 'knowledge']) {
+      if (Array.isArray(data[storeName])) {
+        await Promise.allSettled(data[storeName].map(r => put(storeName, r)));
+      }
+    }
+  },
 };
