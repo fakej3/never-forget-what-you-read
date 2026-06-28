@@ -241,7 +241,7 @@ export class Pipeline {
       const pct = 25 + Math.round((i / chapters.length) * 60);
       this._progress(pct, `Analyzing chapter ${i + 1} / ${chapters.length}: "${ch.title}"`, 'analyze');
 
-      let knowledge = emptyKnowledge();
+      let knowledge = null;
       try {
         const raw = await this._call(
           () => this.provider.complete(SYSTEM, promptChapter(ch.title, ch.compressedText), { maxTokens: 1500, temperature: 0.2 }),
@@ -254,7 +254,8 @@ export class Pipeline {
         this._log(`⚠ Chapter ${i + 1} failed: ${err.message}`);
       }
 
-      chapterKnowledge.push(knowledge);
+      const saved = knowledge ?? emptyKnowledge();
+      chapterKnowledge.push(saved);
       aiCallsDone++;
 
       await Storage.saveChapter({
@@ -265,9 +266,9 @@ export class Pipeline {
         pageStart:      ch.pageStart,
         pageEnd:        ch.pageEnd,
         compressedText: ch.compressedText ?? '',
-        aiProcessed:    true,
-        summary:        knowledge.summary,
-        aiKnowledge:    knowledge,
+        aiProcessed:    knowledge !== null,
+        summary:        saved.summary,
+        aiKnowledge:    saved,
       }).catch(e => console.error('[pipeline] saveChapter result failed:', e));
 
       this._log(`✓ Chapter ${i + 1} / ${chapters.length} analyzed`);
@@ -392,7 +393,7 @@ export class Pipeline {
       const pct = 25 + Math.round((i / allChapters.length) * 60);
       this._progress(pct, `Analyzing chapter ${i + 1} / ${allChapters.length}: "${ch.title}"`, 'analyze');
 
-      let knowledge = emptyKnowledge();
+      let knowledge = null;
       try {
         const raw = await this._call(
           () => this.provider.complete(SYSTEM, promptChapter(ch.title, ch.compressedText || ''), { maxTokens: 1500, temperature: 0.2 }),
@@ -408,10 +409,11 @@ export class Pipeline {
         this._log(`⚠ Chapter ${i + 1} failed: ${err.message}`);
       }
 
-      chapterKnowledge[i] = knowledge;
+      const saved = knowledge ?? emptyKnowledge();
+      chapterKnowledge[i] = saved;
       aiCallsDone++;
 
-      await Storage.saveChapter({ ...ch, aiProcessed: true, summary: knowledge.summary, aiKnowledge: knowledge }).catch(() => {});
+      await Storage.saveChapter({ ...ch, aiProcessed: knowledge !== null, summary: saved.summary, aiKnowledge: saved }).catch(() => {});
       this._log(`✓ Chapter ${i + 1} / ${allChapters.length} analyzed`);
       this._emitMetrics({ ...metrics, aiCallsDone });
     }
