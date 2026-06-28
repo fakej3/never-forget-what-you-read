@@ -743,4 +743,76 @@ describe('detectChapters — scoring engine', () => {
     assert.equal(result.length, 5);
   });
 
+  test('Thematic chapters (no keywords) on sparse pages are detected', () => {
+    // Books like "The Psychology of Money" use creative chapter titles with no
+    // "Chapter N" keywords. Chapters sit on their own sparse pages (just the title),
+    // followed by dense body pages. The detector must find them without falling back
+    // to n-page sections.
+    const titles = [
+      'No One Was Crazy', 'Luck and Risk', 'Never Enough', 'Compounding',
+      'Staying Wealthy', 'Tails You Win', 'Freedom', 'Wealth Is Hidden',
+      'Save Money', 'Room for Error', 'You Will Change', 'All Together',
+    ];
+    const pages = [];
+    let pageNum = 1;
+    for (const title of titles) {
+      pages.push(page(pageNum++, title));            // sparse: only the title
+      for (let j = 0; j < 4; j++) pages.push(page(pageNum++, denseBody(pageNum)));
+    }
+    const result = detectChapters(pages);
+    assert.ok(
+      result.length >= 10 && result.length <= 14,
+      `Should detect ~12 thematic chapters, got ${result.length}`
+    );
+    const hasSection = result.some(ch => /^section/i.test(ch.title));
+    assert.equal(hasSection, false, 'Should not fall back to N-page sections');
+  });
+
+  test('Rich mode: full-width body text does not become chapter heading', () => {
+    // Regression test for the CENTERED false-positive bug.
+    // Full-width body lines (x=72, lineWidth=468) have their geometric midpoint
+    // at the page centre (306pt) — exactly matching a centered heading by the
+    // naive centre check.  The CENTERED rule must require lineWidth < pageWidth*0.70.
+    const PAGE_WIDTH = 612;
+    const FULL_WIDTH = 468;   // standard 1-inch-margin text column
+    const TITLE_FONT  = 24;
+    const BODY_FONT   = 11;
+
+    const titles = ['Freedom', 'Luck', 'Risk', 'Growth', 'Wealth', 'Saving'];
+    const pages   = [];
+    let pageNum   = 1;
+
+    for (const title of titles) {
+      const tw = Math.round(title.length * 9);
+      pages.push({
+        pageNum: pageNum++, text: title,
+        width: PAGE_WIDTH, height: 792,
+        lines: [{ text: title, y: 700, x: Math.round((PAGE_WIDTH - tw) / 2),
+                  lineWidth: tw, fontSize: TITLE_FONT, bold: false, italic: false }],
+      });
+      for (let j = 0; j < 5; j++) {
+        const body = denseBody(pageNum);
+        pages.push({
+          pageNum: pageNum++, text: body,
+          width: PAGE_WIDTH, height: 792,
+          lines: [{ text: body.split('\n')[0], y: 720, x: 72,
+                    lineWidth: FULL_WIDTH, fontSize: BODY_FONT, bold: false, italic: false }],
+        });
+      }
+    }
+
+    const result = detectChapters(pages);
+    const titleSet = new Set(titles);
+    for (const ch of result) {
+      assert.ok(
+        titleSet.has(ch.title),
+        `Unexpected chapter title "${ch.title}" — body text must not become a chapter`
+      );
+    }
+    assert.ok(
+      result.length >= 5 && result.length <= 7,
+      `Rich mode should detect ~6 thematic chapters, got ${result.length}`
+    );
+  });
+
 });

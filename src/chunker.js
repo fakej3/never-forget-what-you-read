@@ -536,10 +536,13 @@ function scoreLine(text, lineOpts, ctx) {
   // BOLD: +12
   if (bold) { score += 12; reasons.push('BOLD'); }
 
-  // CENTERED: +15  |lineCenter - pageCenter| < 60pt
+  // CENTERED: +15 — only for lines narrower than 70% of page width.
+  // Full-width justified body text has its midpoint at the page centre by geometry
+  // (equal left/right margins); without this width gate, every body-text first-line
+  // would earn CENTERED and generate a false-positive chapter candidate.
   const pageCenter = pageWidth / 2;
   const lineCenter = x + lineWidth / 2;
-  if (lineWidth > 0 && Math.abs(lineCenter - pageCenter) < 60) {
+  if (lineWidth > 0 && lineWidth < pageWidth * 0.70 && Math.abs(lineCenter - pageCenter) < 60) {
     score += 15; reasons.push('CENTERED');
   }
 
@@ -710,7 +713,16 @@ function scorePages(pages, ctx, threshold = 40) {
     }
 
     if (bestCandidate) {
-      candidates.push(bestCandidate);
+      // On dense pages (≥200 words) with no structural signal, a high-scoring line
+      // is almost certainly a positional false-positive (first body paragraph line at
+      // the top of a page).  Require at least one signal that isn't purely geometric.
+      const hasMeaningfulSignal = bestCandidate.reasons.some(r => [
+        'CHAPTER_KEYWORD', 'LARGE_FONT', 'LARGE_FONT_BIG', 'BOLD',
+        'ALL_CAPS', 'ROMAN_NUMERAL', 'MULTI_LINE_HEADING',
+      ].includes(r));
+      if (hasMeaningfulSignal || pageWordCount < 200) {
+        candidates.push(bestCandidate);
+      }
       continue;
     }
 
