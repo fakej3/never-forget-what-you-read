@@ -9,7 +9,7 @@ export class GeminiProvider extends AIProvider {
   async complete(systemPrompt, userPrompt, { maxTokens = 2048, temperature = 0.3 } = {}) {
     this.validateKey();
 
-    const model = this.model || 'gemini-1.5-flash';
+    const model = this.model || 'gemini-2.5-flash';
     const url   = `${GEMINI_BASE}/${model}:generateContent?key=${this.apiKey}`;
 
     const body = {

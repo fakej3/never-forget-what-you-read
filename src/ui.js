@@ -9,7 +9,7 @@ const PROVIDER_NOTES = {
 };
 
 const PROVIDER_MODELS = {
-  gemini:    ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
+  gemini:    ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash'],
   openai:    ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
   anthropic: ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-opus-4-8'],
 };
