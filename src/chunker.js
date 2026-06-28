@@ -837,11 +837,13 @@ function smartStructuralFallback(pages) {
  */
 export function detectChapters(pages, outline = [], opts = {}) {
   if (!pages || pages.length === 0) return [];
+  console.log(`[chunker] detectChapters: ${pages.length} pages, outline entries: ${(outline||[]).length}`);
 
   // Strategy A: PDF outline
   if (outline && outline.length >= 2) {
     const result = detectFromOutline(pages, outline);
     if (result) {
+      console.log(`[chunker] STRATEGY=pdf-outline → returning ${result.length} chapters`);
       result._diagnostics = makeDiagnostics(result, 'pdf-outline', pages.length);
       if (opts.debug) {
         result._debug = {
@@ -855,6 +857,7 @@ export function detectChapters(pages, outline = [], opts = {}) {
       }
       return result;
     }
+    console.log(`[chunker] pdf-outline rejected (detectFromOutline returned null)`);
   }
 
   // Build scoring context
@@ -863,18 +866,23 @@ export function detectChapters(pages, outline = [], opts = {}) {
   // Stage 3: Score all pages and collect candidates
   const allCandidates = scorePages(pages, ctx, 40);
   const rejectedCandidates = [];
+  console.log(`[chunker] raw candidates (score≥40): ${allCandidates.length}`);
 
   // Try scoring-based approach
   if (allCandidates.length >= 2) {
     // Build chapter list from candidates
     const scoredChapters = buildChaptersFromCandidates(allCandidates, pages);
+    console.log(`[chunker] scored chapters (built from candidates): ${scoredChapters.length}`);
 
     if (scoredChapters.length >= 2) {
       // Try numbered sequence from scored results
       const seqResult = extractNumberedSequence(scoredChapters, pages);
       if (seqResult && seqResult.length >= 2) {
         const q = chapterQuality(seqResult, pages.length);
-        if (q >= 0.35 && sanityCheck(seqResult, pages.length)) {
+        const sane = sanityCheck(seqResult, pages.length);
+        console.log(`[chunker] numbered-sequence from scoring: ${seqResult.length} chapters, quality=${q.toFixed(2)}, sanity=${sane}`);
+        if (q >= 0.35 && sane) {
+          console.log(`[chunker] STRATEGY=numbered-sequence → returning ${seqResult.length} chapters`);
           seqResult._diagnostics = makeDiagnostics(seqResult, 'numbered-sequence', pages.length);
           if (opts.debug) {
             seqResult._debug = {
@@ -888,11 +896,17 @@ export function detectChapters(pages, outline = [], opts = {}) {
           }
           return seqResult;
         }
+        console.log(`[chunker] numbered-sequence rejected (quality<0.35 or sanity=false)`);
+      } else {
+        console.log(`[chunker] numbered-sequence from scoring: none found or <2`);
       }
 
       // Try raw scored chapters
       const q = chapterQuality(scoredChapters, pages.length);
-      if (q >= 0.25 && sanityCheck(scoredChapters, pages.length)) {
+      const sane = sanityCheck(scoredChapters, pages.length);
+      console.log(`[chunker] raw-scoring: ${scoredChapters.length} chapters, quality=${q.toFixed(2)}, sanity=${sane}`);
+      if (q >= 0.25 && sane) {
+        console.log(`[chunker] STRATEGY=raw-scoring → returning ${scoredChapters.length} chapters ← LIKELY OVERCOUNTING`);
         scoredChapters._diagnostics = makeDiagnostics(scoredChapters, 'scoring', pages.length);
         if (opts.debug) {
           scoredChapters._debug = {
@@ -906,15 +920,21 @@ export function detectChapters(pages, outline = [], opts = {}) {
         }
         return scoredChapters;
       }
+      console.log(`[chunker] raw-scoring rejected (quality<0.25 or sanity=false)`);
     }
 
     // Retry with relaxed threshold (threshold - 15 = 25)
     const relaxedCandidates = scorePages(pages, ctx, 25);
+    console.log(`[chunker] relaxed candidates (score≥25): ${relaxedCandidates.length}`);
     if (relaxedCandidates.length >= 2) {
       const relaxedChapters = buildChaptersFromCandidates(relaxedCandidates, pages);
+      console.log(`[chunker] relaxed chapters: ${relaxedChapters.length}`);
       if (relaxedChapters.length >= 2) {
         const qr = chapterQuality(relaxedChapters, pages.length);
-        if (qr >= 0.25 && sanityCheck(relaxedChapters, pages.length)) {
+        const saner = sanityCheck(relaxedChapters, pages.length);
+        console.log(`[chunker] relaxed-scoring: quality=${qr.toFixed(2)}, sanity=${saner}`);
+        if (qr >= 0.25 && saner) {
+          console.log(`[chunker] STRATEGY=relaxed-scoring → returning ${relaxedChapters.length} chapters`);
           relaxedChapters._diagnostics = makeDiagnostics(relaxedChapters, 'scoring', pages.length);
           if (opts.debug) {
             relaxedChapters._debug = {
@@ -928,19 +948,26 @@ export function detectChapters(pages, outline = [], opts = {}) {
           }
           return relaxedChapters;
         }
+        console.log(`[chunker] relaxed-scoring rejected`);
       }
     }
+  } else {
+    console.log(`[chunker] scoring: <2 candidates, skipping scoring strategies`);
   }
 
   // Fall back to old pattern detection for backward compat
   const patternResult = detectFromPatterns(pages);
+  console.log(`[chunker] pattern-detection: ${patternResult.length} chapters`);
 
   if (patternResult.length >= 2) {
     // Try to refine to a clean numbered sequence
     const seqResult = extractNumberedSequence(patternResult, pages);
     if (seqResult && seqResult.length >= 2) {
       const q = chapterQuality(seqResult, pages.length);
-      if (q >= 0.35 && sanityCheck(seqResult, pages.length)) {
+      const sane = sanityCheck(seqResult, pages.length);
+      console.log(`[chunker] numbered-sequence from patterns: ${seqResult.length} chapters, quality=${q.toFixed(2)}, sanity=${sane}`);
+      if (q >= 0.35 && sane) {
+        console.log(`[chunker] STRATEGY=numbered-sequence(patterns) → returning ${seqResult.length} chapters`);
         seqResult._diagnostics = makeDiagnostics(seqResult, 'numbered-sequence', pages.length);
         if (opts.debug) {
           seqResult._debug = {
@@ -954,10 +981,16 @@ export function detectChapters(pages, outline = [], opts = {}) {
         }
         return seqResult;
       }
+      console.log(`[chunker] numbered-sequence(patterns) rejected`);
+    } else {
+      console.log(`[chunker] numbered-sequence from patterns: none found or <2`);
     }
     // Fall back to raw pattern result
     const q = chapterQuality(patternResult, pages.length);
-    if (q >= 0.25 && sanityCheck(patternResult, pages.length)) {
+    const sane = sanityCheck(patternResult, pages.length);
+    console.log(`[chunker] raw-patterns: quality=${q.toFixed(2)}, sanity=${sane}`);
+    if (q >= 0.25 && sane) {
+      console.log(`[chunker] STRATEGY=raw-patterns → returning ${patternResult.length} chapters`);
       patternResult._diagnostics = makeDiagnostics(patternResult, 'patterns', pages.length);
       if (opts.debug) {
         patternResult._debug = {
@@ -971,11 +1004,13 @@ export function detectChapters(pages, outline = [], opts = {}) {
       }
       return patternResult;
     }
+    console.log(`[chunker] raw-patterns rejected`);
   }
 
   // Stage 7: Smart structural fallback
   const structResult = smartStructuralFallback(pages);
   if (structResult && structResult.length >= 2) {
+    console.log(`[chunker] STRATEGY=structural-fallback → returning ${structResult.length} chapters`);
     structResult._diagnostics = makeDiagnostics(structResult, 'structural-fallback', pages.length);
     if (opts.debug) {
       structResult._debug = {
@@ -989,12 +1024,14 @@ export function detectChapters(pages, outline = [], opts = {}) {
     }
     return structResult;
   }
+  console.log(`[chunker] structural-fallback: no result or <2`);
 
   // Stage 8: N-page sections
   if (pages.length >= 20) {
     const targetSections = Math.min(20, Math.max(5, Math.floor(pages.length / 20)));
     const sectionSize    = Math.ceil(pages.length / targetSections);
     const sections       = createPageSections(pages, sectionSize);
+    console.log(`[chunker] STRATEGY=n-page-sections → returning ${sections.length} sections`);
     sections._diagnostics = makeDiagnostics(sections, 'n-page-sections', pages.length);
     if (opts.debug) {
       sections._debug = {
@@ -1016,6 +1053,7 @@ export function detectChapters(pages, outline = [], opts = {}) {
     pageStart: pages[0]?.pageNum ?? 1,
     pageEnd:   pages[pages.length - 1]?.pageNum ?? pages.length,
   }];
+  console.log(`[chunker] STRATEGY=single-section → returning 1 chapter (Full Book)`);
   full._diagnostics = makeDiagnostics(full, 'single-section', pages.length);
   if (opts.debug) {
     full._debug = {

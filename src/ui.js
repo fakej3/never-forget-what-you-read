@@ -350,6 +350,7 @@ export class UI {
       Storage.getChapters(bookId),
       Storage.getKnowledge(bookId),
     ]);
+    console.log(`[ui] STAGE loaded-chapters: Storage.getChapters(${bookId}) returned ${(chapters||[]).length} chapters`);
 
     if (!book) {
       this.showError('Book not found in archive.');
@@ -363,6 +364,7 @@ export class UI {
     this._setText('detail-title',        book.title   || 'Untitled');
     this._setText('detail-pages',        `${book.pageCount ?? '?'} pages`);
     this._setText('detail-chapters',     `${(chapters || []).length} chapters`);
+    console.log(`[ui] STAGE displayed-chapters: rendering ${(chapters||[]).length} chapters in detail view`);
     this._setText('detail-date',         date);
     this._setText('detail-book-summary', book.summary || 'No summary available.');
 

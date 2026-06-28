@@ -175,7 +175,12 @@ export class Pipeline {
     this._check();
 
     const rawChapters  = detectChapters(pages, outline);
+    console.log(`[pipeline] STAGE selected-chapters: detectChapters() returned ${rawChapters.length}`);
     const chapters     = groupChapters(rawChapters, MAX_CHAPTER_GROUPS);
+    console.log(`[pipeline] STAGE grouped-chapters:  groupChapters(${rawChapters.length}, max=${MAX_CHAPTER_GROUPS}) → ${chapters.length}`);
+    if (rawChapters.length > MAX_CHAPTER_GROUPS) {
+      console.warn(`[pipeline] ⚠ CHAPTER CAP HIT: detector found ${rawChapters.length} chapters, capped to ${MAX_CHAPTER_GROUPS} by MAX_CHAPTER_GROUPS`);
+    }
     const aiCallsTotal = chapters.length + 1;
 
     const src = outline && outline.length >= 2 ? 'PDF outline' : 'heading patterns';
@@ -203,6 +208,7 @@ export class Pipeline {
         aiKnowledge:    null,
       }).catch(e => console.error('[pipeline] saveChapter stub failed:', e));
     }
+    console.log(`[pipeline] STAGE saved-chapters: ${chapters.length} chapter stubs written to IndexedDB`);
 
     const stub    = await Storage.getBook(bookId).catch(() => null);
     const title   = stub?.title || inferTitle(filename);
